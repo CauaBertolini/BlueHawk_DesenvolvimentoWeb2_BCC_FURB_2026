@@ -52,7 +52,19 @@ public class JwtTokenService {
                 .getTokenValue();
     }
 
+    /**
+     * Renova o token gravando o papel atual do usuário (vindo do banco) no claim "scope",
+     * em vez de copiar o papel que estava no token antigo.
+     */
+    public String rotateToken(Jwt currentJwt, String currentRole) {
+        return rotate(currentJwt, currentRole);
+    }
+
     public String rotateToken(Jwt currentJwt) {
+        return rotate(currentJwt, null);
+    }
+
+    private String rotate(Jwt currentJwt, String roleOverride) {
         String identifier = currentJwt.getId() != null ? currentJwt.getId() : currentJwt.getTokenValue();
         Instant expiresAt = currentJwt.getExpiresAt() != null ? currentJwt.getExpiresAt() : Instant.now().plusSeconds(expirationSeconds);
         tokenBlacklistService.blacklist(identifier, expiresAt);
@@ -75,6 +87,9 @@ public class JwtTokenService {
                 builder.claim(key, value);
             }
         });
+        if (roleOverride != null) {
+            builder.claim("scope", roleOverride);
+        }
 
         return jwtEncoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), builder.build()))
                 .getTokenValue();
