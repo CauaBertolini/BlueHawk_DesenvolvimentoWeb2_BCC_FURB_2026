@@ -1,5 +1,6 @@
 package com.example.blue_hawk.presentation.userboardgame;
 
+import com.example.blue_hawk.application.dto.auth.CurrentUser;
 import com.example.blue_hawk.application.dto.userboardgame.CreateUserBoardgameCommand;
 import com.example.blue_hawk.application.dto.userboardgame.CreateUserBoardgameOutput;
 import com.example.blue_hawk.application.dto.userboardgame.DeleteUserBoardgameCommand;
@@ -54,10 +55,12 @@ public class UserBoardgameController {
     }
 
     @PostMapping
-    public ResponseEntity<UserBoardgameResponse> create(@RequestBody UserBoardgameRequest request) {
+    public ResponseEntity<UserBoardgameResponse> create(@RequestBody UserBoardgameRequest request,
+                                                        CurrentUser currentUser) {
         CreateUserBoardgameCommand command = new CreateUserBoardgameCommand(
                 request.userId(),
-                request.boardgameId()
+                request.boardgameId(),
+                currentUser
         );
         CreateUserBoardgameOutput output = createUserBoardgameUseCase.handle(command);
         return ResponseEntity.status(HttpStatus.CREATED)
