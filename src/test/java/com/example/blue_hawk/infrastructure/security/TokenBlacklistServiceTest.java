@@ -35,6 +35,14 @@ class TokenBlacklistServiceTest {
     }
 
     @Test
+    void shouldKeepRotatedTokenValidDuringGraceWindow() {
+        // Requisições em paralelo com o mesmo token não podem derrubar a sessão
+        TokenBlacklistService withGrace = new TokenBlacklistService(30);
+        withGrace.blacklist("token-rotated", Instant.now().plusSeconds(3600));
+        assertFalse(withGrace.isBlacklisted("token-rotated"));
+    }
+
+    @Test
     void shouldReturnFalseForNullOrNonExistentToken() {
         assertFalse(blacklistService.isBlacklisted(null));
         assertFalse(blacklistService.isBlacklisted("non-existent"));

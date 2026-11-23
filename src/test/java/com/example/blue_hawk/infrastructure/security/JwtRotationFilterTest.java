@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.http.HttpHeaders;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -17,6 +18,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.eq;
@@ -63,10 +65,13 @@ class JwtRotationFilterTest {
                 Map.of("sub", "user-123", "scope", "ADMIN")
         );
 
-        JwtAuthenticationToken authentication = new JwtAuthenticationToken(jwt, Collections.emptyList());
+        // O token antigo dizia ADMIN, mas o papel atual (vindo do banco, nas authorities) é USER:
+        // o token renovado deve sair com o papel atual
+        JwtAuthenticationToken authentication = new JwtAuthenticationToken(
+                jwt, List.of(new SimpleGrantedAuthority("SCOPE_USER")));
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        when(jwtTokenService.rotateToken(jwt)).thenReturn("new-rotated-token");
+        when(jwtTokenService.rotateToken(jwt, "USER")).thenReturn("new-rotated-token");
 
         filter.doFilterInternal(request, response, filterChain);
 

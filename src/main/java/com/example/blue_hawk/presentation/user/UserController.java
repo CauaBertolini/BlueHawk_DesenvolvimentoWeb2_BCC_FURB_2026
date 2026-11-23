@@ -1,5 +1,6 @@
 package com.example.blue_hawk.presentation.user;
 
+import com.example.blue_hawk.application.dto.auth.CurrentUser;
 import com.example.blue_hawk.application.dto.user.AuthenticateUserCommand;
 import com.example.blue_hawk.application.dto.user.AuthenticateUserOutput;
 import com.example.blue_hawk.application.dto.user.ChangeUserPasswordCommand;
@@ -19,7 +20,6 @@ import com.example.blue_hawk.application.usecase.user.UpdateUserUseCase;
 import com.example.blue_hawk.presentation.dto.ApiResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -31,16 +31,19 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Contas de usuário. Alterar e excluir: só o próprio usuário ou um ADMIN. Trocar a senha: só o próprio usuário.
+ * As regras usam o {@link CurrentUser} da requisição (não vão nos commands, que também são o corpo JSON e
+ * poderiam ser preenchidos pelo cliente).
+ */
 @RestController
 @RequestMapping("/users")
 public class UserController {
-
-    // O "sub" do token é o id do usuário. Só o próprio usuário (ou um ADMIN) pode alterar/excluir.
-    private static final String OWNER_OR_ADMIN = "hasAuthority('SCOPE_ADMIN') or authentication.name == #uuid.toString()";
 
     private final CreateUserUseCase createUserUseCase;
     private final AuthenticateUserUseCase authenticateUserUseCase;
@@ -79,20 +82,25 @@ public class UserController {
 
     // PUT e PATCH usam o mesmo caso de uso: só os campos enviados são alterados.
     @PutMapping("/{uuid}")
-    @PreAuthorize(OWNER_OR_ADMIN)
-    public UserOutput update(@PathVariable UUID uuid, @Valid @RequestBody UpdateUserCommand body) {
+    public UserOutput update(@PathVariable UUID uuid, @Valid @RequestBody UpdateUserCommand body,
+                             CurrentUser currentUser) {
+        requireSelfOrAdmin(currentUser, uuid);
         return updateUserUseCase.handle(new UpdateUserCommand(uuid.toString(), body.name(), body.email()));
     }
 
     @PatchMapping("/{uuid}")
-    @PreAuthorize(OWNER_OR_ADMIN)
-    public UserOutput patch(@PathVariable UUID uuid, @Valid @RequestBody UpdateUserCommand body) {
-        return update(uuid, body);
+    public UserOutput patch(@PathVariable UUID uuid, @Valid @RequestBody UpdateUserCommand body,
+                            CurrentUser currentUser) {
+        return update(uuid, body, currentUser);
     }
 
+    /** Só o próprio usuário: nem um ADMIN troca a senha de outra pessoa */
     @PatchMapping("/{uuid}/password")
-    @PreAuthorize("authentication.name == #uuid.toString()")
-    public ApiResponse<Void> changePassword(@PathVariable UUID uuid, @Valid @RequestBody ChangeUserPasswordCommand body) {
+    public ApiResponse<Void> changePassword(@PathVariable UUID uuid, @Valid @RequestBody ChangeUserPasswordCommand body,
+                                            CurrentUser currentUser) {
+        if (!currentUser.isSelf(uuid)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only change your own password");
+        }
         changeUserPasswordUseCase.handle(
                 new ChangeUserPasswordCommand(uuid.toString(), body.currentPassword(), body.newPassword()));
         return ApiResponse.empty();
@@ -112,9 +120,15 @@ public class UserController {
     }
 
     @DeleteMapping("/{uuid}")
-    @PreAuthorize(OWNER_OR_ADMIN)
-    public ApiResponse<Void> delete(@PathVariable UUID uuid) {
+    public ApiResponse<Void> delete(@PathVariable UUID uuid, CurrentUser currentUser) {
+        requireSelfOrAdmin(currentUser, uuid);
         deleteUserUseCase.handle(new DeleteUserCommand(uuid.toString()));
         return ApiResponse.empty();
+    }
+
+    private static void requireSelfOrAdmin(CurrentUser currentUser, UUID userId) {
+        if (!currentUser.isSelfOrAdmin(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only change your own account");
+        }
     }
 }

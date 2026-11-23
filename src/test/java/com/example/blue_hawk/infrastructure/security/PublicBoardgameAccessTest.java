@@ -1,11 +1,15 @@
 package com.example.blue_hawk.infrastructure.security;
 
 import com.example.blue_hawk.application.dto.boardgame.ListBoardgameOutput;
+import com.example.blue_hawk.application.usecase.boardgame.BoardgameCoverUseCase;
+import com.example.blue_hawk.application.usecase.boardgame.LikeBoardgameUseCase;
 import com.example.blue_hawk.application.usecase.boardgame.CreateBoardgameUseCase;
 import com.example.blue_hawk.application.usecase.boardgame.DeleteBoardgameUseCase;
 import com.example.blue_hawk.application.usecase.boardgame.GetBoardgameUseCase;
 import com.example.blue_hawk.application.usecase.boardgame.ListBoardgameUseCase;
+import com.example.blue_hawk.application.usecase.boardgame.ReviewBoardgameUseCase;
 import com.example.blue_hawk.application.usecase.boardgame.UpdateBoardgameUseCase;
+import com.example.blue_hawk.domain.repository.IUserRepository;
 import com.example.blue_hawk.presentation.boardgame.BoardgameController;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,11 +54,19 @@ class PublicBoardgameAccessTest {
     private UpdateBoardgameUseCase updateBoardgameUseCase;
     @MockitoBean
     private DeleteBoardgameUseCase deleteBoardgameUseCase;
+    @MockitoBean
+    private ReviewBoardgameUseCase reviewBoardgameUseCase;
+    @MockitoBean
+    private IUserRepository userRepository;
+    @MockitoBean
+    private BoardgameCoverUseCase boardgameCoverUseCase;
+    @MockitoBean
+    private LikeBoardgameUseCase likeBoardgameUseCase;
 
     @Test
     void shouldListBoardgamesWithoutToken() throws Exception {
         when(listBoardgameUseCase.handle(any())).thenReturn(List.of(
-                new ListBoardgameOutput("1", "Marés de Ferro", "Estratégia naval", 2024, 4, 90)));
+                new ListBoardgameOutput("1", "Marés de Ferro", "Estratégia naval", 2024, 4, 90, "APPROVED", null, null, null, "Estratégia", "waves-1", null, 3, false)));
 
         mockMvc.perform(get("/boardgames"))
                 .andExpect(status().isOk())
@@ -73,6 +85,13 @@ class PublicBoardgameAccessTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Novo\"}"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void shouldKeepApprovalEndpointsProtected() throws Exception {
+        mockMvc.perform(post("/boardgames/1/approve")).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/boardgames/1/reject")).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/boardgames/1/like")).andExpect(status().isUnauthorized());
     }
 
     @Test

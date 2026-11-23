@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -31,7 +32,14 @@ public class JwtRotationFilter extends OncePerRequestFilter {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication instanceof JwtAuthenticationToken jwtAuth && authentication.isAuthenticated()) {
-            String newToken = jwtTokenService.rotateToken(jwtAuth.getToken());
+            // O papel vem das authorities (lidas do banco pelo UserRoleJwtAuthenticationConverter)
+            String currentRole = jwtAuth.getAuthorities().stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .filter(a -> a.startsWith(UserRoleJwtAuthenticationConverter.SCOPE_PREFIX))
+                    .map(a -> a.substring(UserRoleJwtAuthenticationConverter.SCOPE_PREFIX.length()))
+                    .findFirst()
+                    .orElse(null);
+            String newToken = jwtTokenService.rotateToken(jwtAuth.getToken(), currentRole);
             request.setAttribute(ROTATED_TOKEN_ATTRIBUTE, newToken);
             response.setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + newToken);
             response.setHeader(ACCESS_TOKEN_HEADER, newToken);

@@ -6,8 +6,10 @@ import com.example.blue_hawk.domain.repository.IOfferRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -30,6 +32,17 @@ public class OfferRepositoryImpl implements IOfferRepository {
     @Override
     public Optional<Offer> findById(UUID id) {
         return jpaRepository.findById(id).map(this::toDomain);
+    }
+
+    @Override
+    public List<Offer> findActiveForStore(boolean cheapestFirst, int limit) {
+        Sort sort = cheapestFirst
+                ? Sort.by("price").ascending().and(
+                        Sort.by("createdAt").descending())
+                : Sort.by("createdAt").descending();
+        return jpaRepository.findByStatus(OfferStatus.ACTIVE, PageRequest.of(0, limit, sort)).stream()
+                .map(this::toDomain)
+                .toList();
     }
 
     @Override
