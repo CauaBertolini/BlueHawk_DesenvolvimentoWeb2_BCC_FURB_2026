@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.dto.user;
 
+import com.example.blue_hawk.application.dto.auth.CurrentUser;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -12,6 +14,7 @@ public record ChangeUserPasswordCommand(
 
         @NotBlank
         @Size(min = 8, max = 72)
-        String newPassword
+        String newPassword,
+        CurrentUser currentUser
 ) {
 }

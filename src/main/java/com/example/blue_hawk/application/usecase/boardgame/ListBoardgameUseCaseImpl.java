@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.usecase.boardgame;
 
+import com.example.blue_hawk.application.usecase.Paging;
+
 import com.example.blue_hawk.application.dto.auth.CurrentUser;
 import com.example.blue_hawk.application.dto.boardgame.ListBoardgameOutput;
 import com.example.blue_hawk.application.dto.boardgame.ListBoardgameQuery;
@@ -29,8 +31,8 @@ public class ListBoardgameUseCaseImpl implements ListBoardgameUseCase {
     @Override
     public List<ListBoardgameOutput> handle(ListBoardgameQuery query) {
         String name = query.name() != null && !query.name().isBlank() ? query.name() : null;
-        int page = query.page() != null ? query.page() : 0;
-        int size = query.size() != null ? query.size() : 10;
+        int page = Paging.page(query.page());
+        int size = Paging.size(query.size());
         ApprovalStatus status = parseStatus(query.status());
         boolean mostLikedFirst = parseSort(query.sort());
 

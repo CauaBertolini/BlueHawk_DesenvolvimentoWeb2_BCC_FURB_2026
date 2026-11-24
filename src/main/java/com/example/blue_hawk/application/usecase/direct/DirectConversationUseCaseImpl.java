@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.usecase.direct;
 
+import com.example.blue_hawk.application.usecase.auth.Access;
+
 import com.example.blue_hawk.application.dto.auth.CurrentUser;
 import com.example.blue_hawk.application.dto.direct.DirectConversationDtos.ConversationView;
 import com.example.blue_hawk.application.dto.direct.DirectConversationDtos.LastMessageView;
@@ -63,7 +65,7 @@ public class DirectConversationUseCaseImpl implements DirectConversationUseCase 
     @Override
     @Transactional
     public OpenResult open(String userId, CurrentUser currentUser) {
-        UUID me = requireLogin(currentUser);
+        UUID me = Access.requireUserId(currentUser);
         UUID other = parseId(userId, "userId");
         if (other.equals(me)) {
             throw badRequest("You cannot start a conversation with yourself");
@@ -85,7 +87,7 @@ public class DirectConversationUseCaseImpl implements DirectConversationUseCase 
 
     @Override
     public ConversationView get(String conversationId, CurrentUser currentUser) {
-        UUID me = requireLogin(currentUser);
+        UUID me = Access.requireUserId(currentUser);
         DirectConversation conversation = load(conversationId, me);
         return view(conversation, me, new Names());
     }
@@ -93,7 +95,7 @@ public class DirectConversationUseCaseImpl implements DirectConversationUseCase 
     @Override
     @Transactional
     public List<MessageView> messages(String conversationId, String after, CurrentUser currentUser) {
-        UUID me = requireLogin(currentUser);
+        UUID me = Access.requireUserId(currentUser);
         DirectConversation conversation = load(conversationId, me);
         Instant afterInstant = parseOptionalInstant(after);
 
@@ -107,7 +109,7 @@ public class DirectConversationUseCaseImpl implements DirectConversationUseCase 
     @Override
     @Transactional
     public MessageView send(String conversationId, String body, CurrentUser currentUser) {
-        UUID me = requireLogin(currentUser);
+        UUID me = Access.requireUserId(currentUser);
         DirectConversation conversation = load(conversationId, me);
         UUID other = conversation.otherThan(me);
         if (!acceptsDirectMessages(other)) {
@@ -192,13 +194,6 @@ public class DirectConversationUseCaseImpl implements DirectConversationUseCase 
     }
 
     // ── validações ──────────────────────────────────────────────────────────
-
-    private static UUID requireLogin(CurrentUser currentUser) {
-        if (currentUser == null || !currentUser.authenticated()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
-        }
-        return currentUser.userId();
-    }
 
     private static UUID parseId(String value, String field) {
         try {

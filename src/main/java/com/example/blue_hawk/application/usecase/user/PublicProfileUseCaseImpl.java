@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.usecase.user;
 
+import com.example.blue_hawk.application.usecase.auth.Access;
+
 import com.example.blue_hawk.application.dto.auth.CurrentUser;
 import com.example.blue_hawk.application.dto.user.UserProfileDtos.ProfileInfo;
 import com.example.blue_hawk.application.dto.user.UserProfileDtos.ProfileStats;
@@ -58,7 +60,7 @@ public class PublicProfileUseCaseImpl implements PublicProfileUseCase {
 
     @Override
     public PublicProfileView get(String userId, CurrentUser currentUser) {
-        UserProfileUseCaseImpl.requireLogin(currentUser);
+        Access.requireLogin(currentUser);
         UUID id = parseId(userId);
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));

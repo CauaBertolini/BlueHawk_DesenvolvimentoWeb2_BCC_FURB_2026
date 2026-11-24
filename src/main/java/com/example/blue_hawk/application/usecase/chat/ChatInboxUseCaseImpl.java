@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.usecase.chat;
 
+import com.example.blue_hawk.application.usecase.auth.Access;
+
 import com.example.blue_hawk.application.dto.auth.CurrentUser;
 import com.example.blue_hawk.application.dto.chat.ChatInboxDtos.ChatItemView;
 import com.example.blue_hawk.application.dto.chat.ChatInboxDtos.LastMessageView;
@@ -28,9 +30,7 @@ import com.example.blue_hawk.domain.repository.IOpenMatchRepository;
 import com.example.blue_hawk.domain.repository.IUserBoardGameRepository;
 import com.example.blue_hawk.domain.repository.IUserProfileRepository;
 import com.example.blue_hawk.domain.repository.IUserRepository;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -96,7 +96,7 @@ public class ChatInboxUseCaseImpl implements ChatInboxUseCase {
 
     @Override
     public List<ChatItemView> inbox(CurrentUser currentUser) {
-        UUID me = requireLogin(currentUser);
+        UUID me = Access.requireUserId(currentUser);
         List<Notification> unread = notificationRepository.findUnreadChatMessages(me);
         Lookups lookups = new Lookups();
 
@@ -122,7 +122,7 @@ public class ChatInboxUseCaseImpl implements ChatInboxUseCase {
 
     @Override
     public long unreadCount(CurrentUser currentUser) {
-        return notificationRepository.countUnreadChatMessages(requireLogin(currentUser));
+        return notificationRepository.countUnreadChatMessages(Access.requireUserId(currentUser));
     }
 
     // ── partidas ────────────────────────────────────────────────────────────
@@ -332,12 +332,5 @@ public class ChatInboxUseCaseImpl implements ChatInboxUseCase {
                     .map(Boardgame::getName)
                     .orElse(null);
         }
-    }
-
-    private static UUID requireLogin(CurrentUser currentUser) {
-        if (currentUser == null || !currentUser.authenticated()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
-        }
-        return currentUser.userId();
     }
 }

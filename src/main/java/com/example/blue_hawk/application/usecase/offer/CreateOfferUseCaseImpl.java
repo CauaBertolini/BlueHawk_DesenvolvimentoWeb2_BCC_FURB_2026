@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.usecase.offer;
 
+import com.example.blue_hawk.application.usecase.auth.Access;
+
 import com.example.blue_hawk.application.dto.offer.CreateOfferCommand;
 import com.example.blue_hawk.application.dto.offer.CreateOfferOutput;
 import com.example.blue_hawk.domain.entity.boardgame.Boardgame;
@@ -34,6 +36,7 @@ public class CreateOfferUseCaseImpl implements CreateOfferUseCase {
 
     @Override
     public CreateOfferOutput handle(CreateOfferCommand command) {
+        Access.requireLogin(command.currentUser());
         if (command.userBoardgameId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "userBoardgameId is required");
         }
@@ -44,6 +47,8 @@ public class CreateOfferUseCaseImpl implements CreateOfferUseCase {
 
         UserBoardgame copy = userBoardGameRepository.findById(UUID.fromString(command.userBoardgameId()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "UserBoardgame not found"));
+        // Só o dono da cópia (ou ADMIN) pode anunciá-la
+        Access.requireShelfOwner(copy, command.currentUser());
         Boardgame boardgame = boardgameRepository.findById(copy.getBoardgameId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Boardgame not found"));
         // A Loja só anuncia jogos do catálogo: um jogo ainda em aprovação não pode ser vendido

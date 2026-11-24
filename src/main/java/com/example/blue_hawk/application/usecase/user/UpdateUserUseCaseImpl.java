@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.usecase.user;
 
+import com.example.blue_hawk.application.usecase.auth.Access;
+
 import com.example.blue_hawk.application.dto.user.UpdateUserCommand;
 import com.example.blue_hawk.application.dto.user.UserOutput;
 import com.example.blue_hawk.domain.entity.user.User;
@@ -22,6 +24,7 @@ public class UpdateUserUseCaseImpl implements UpdateUserUseCase {
     @Override
     public UserOutput handle(UpdateUserCommand command) {
         UUID userId = UUID.fromString(command.id());
+        Access.requireSelfOrAdmin(userId, command.currentUser(), "You can only change your own account");
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 

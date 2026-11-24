@@ -39,7 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
                 "security.jwt.expiration-seconds=3600",
                 "app.cors.allowed-origins=http://localhost:5173"
         })
-@Import({SecurityConfig.class, JwtTokenService.class, TokenBlacklistService.class})
+@Import({SecurityConfig.class, JwtTokenService.class, TokenBlacklistService.class, ClientIpResolver.class})
 class PublicBoardgameAccessTest {
 
     @Autowired

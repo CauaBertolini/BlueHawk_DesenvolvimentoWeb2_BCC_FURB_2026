@@ -1,8 +1,11 @@
 package com.example.blue_hawk.infrastructure.realtime;
 
+import java.util.function.Consumer;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorator;
@@ -64,6 +67,28 @@ public class RealtimeSessionRegistry {
     public void sendToUser(UUID userId, String payload) {
         for (WebSocketSession session : sessionsOf(userId)) {
             send(session, payload);
+        }
+    }
+
+    /** Percorre todas as conexões autenticadas (cópia: a ação pode remover sessões) */
+    public void forEachSession(Consumer<WebSocketSession> action) {
+        sessionsByUser.values().forEach(sessions -> Set.copyOf(sessions).forEach(action));
+    }
+
+    /** Fecha todas as conexões do usuário (conta excluída) e tira do registro */
+    public void closeUser(UUID userId, CloseStatus status) {
+        Set<WebSocketSession> sessions = sessionsByUser.remove(userId);
+        if (sessions != null) {
+            sessions.forEach(session -> close(session, status));
+        }
+    }
+
+    /** Fechamento protegido: erro só vira log */
+    static void close(WebSocketSession session, CloseStatus status) {
+        try {
+            if (session.isOpen()) session.close(status);
+        } catch (Exception e) {
+            log.debug("Falha ao fechar o WebSocket {}: {}", session.getId(), e.getMessage());
         }
     }
 

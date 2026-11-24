@@ -1,5 +1,7 @@
 package com.example.blue_hawk.presentation.offer;
 
+import com.example.blue_hawk.application.dto.auth.CurrentUser;
+
 import com.example.blue_hawk.application.dto.offer.CreateOfferCommand;
 import com.example.blue_hawk.application.dto.offer.CreateOfferOutput;
 import com.example.blue_hawk.application.dto.offer.DeleteOfferCommand;
@@ -62,14 +64,15 @@ public class OfferController {
     }
 
     @PostMapping
-    public ResponseEntity<OfferResponse> create(@RequestBody OfferRequest request) {
+    public ResponseEntity<OfferResponse> create(@RequestBody OfferRequest request, CurrentUser currentUser) {
         CreateOfferCommand command = new CreateOfferCommand(
                 request.userBoardgameId(),
                 request.price(),
                 request.status(),
                 request.description(),
                 request.condition(),
-                request.deliveryMethod()
+                request.deliveryMethod(),
+                currentUser
         );
         CreateOfferOutput output = createOfferUseCase.handle(command);
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(output));
@@ -104,7 +107,8 @@ public class OfferController {
     @PutMapping("/{uuid}")
     public ResponseEntity<OfferResponse> update(
             @PathVariable("uuid") String uuid,
-            @RequestBody OfferRequest request) {
+            @RequestBody OfferRequest request,
+            CurrentUser currentUser) {
 
         UpdateOfferCommand command = new UpdateOfferCommand(
                 uuid,
@@ -113,7 +117,8 @@ public class OfferController {
                 request.status(),
                 request.description(),
                 request.condition(),
-                request.deliveryMethod()
+                request.deliveryMethod(),
+                currentUser
         );
         UpdateOfferOutput output = updateOfferUseCase.handle(command);
         return ResponseEntity.ok(toResponse(output));
@@ -122,7 +127,8 @@ public class OfferController {
     @PatchMapping("/{uuid}")
     public ResponseEntity<OfferResponse> patch(
             @PathVariable("uuid") String uuid,
-            @RequestBody OfferPatchRequest request) {
+            @RequestBody OfferPatchRequest request,
+            CurrentUser currentUser) {
 
         PatchOfferCommand command = new PatchOfferCommand(
                 uuid,
@@ -130,15 +136,16 @@ public class OfferController {
                 request.status(),
                 request.description(),
                 request.condition(),
-                request.deliveryMethod()
+                request.deliveryMethod(),
+                currentUser
         );
         PatchOfferOutput output = patchOfferUseCase.handle(command);
         return ResponseEntity.ok(toResponse(output));
     }
 
     @DeleteMapping("/{uuid}")
-    public ApiResponse<Void> delete(@PathVariable("uuid") String uuid) {
-        deleteOfferUseCase.handle(new DeleteOfferCommand(uuid));
+    public ApiResponse<Void> delete(@PathVariable("uuid") String uuid, CurrentUser currentUser) {
+        deleteOfferUseCase.handle(new DeleteOfferCommand(uuid, currentUser));
         return ApiResponse.empty();
     }
 

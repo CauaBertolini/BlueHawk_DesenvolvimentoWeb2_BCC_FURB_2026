@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.usecase.matchParticipant;
 
+import com.example.blue_hawk.application.usecase.Paging;
+
 import com.example.blue_hawk.application.dto.matchParticipant.ListMatchParticipantOutput;
 import com.example.blue_hawk.application.dto.matchParticipant.ListMatchParticipantQuery;
 import com.example.blue_hawk.domain.repository.IMatchParticipantRepository;
@@ -23,7 +25,7 @@ public class ListMatchParticipantUseCaseImpl implements ListMatchParticipantUseC
         UUID userId = query.userId() != null ? UUID.fromString(query.userId()) : null;
 
         return matchParticipantRepository
-                .findAll(matchId, userId, query.page(), query.size())
+                .findAll(matchId, userId, Paging.page(query.page()), Paging.size(query.size()))
                 .getContent()
                 .stream()
                 .map(mp -> new ListMatchParticipantOutput(

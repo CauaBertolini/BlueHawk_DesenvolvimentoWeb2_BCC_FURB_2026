@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.usecase.openmatch;
 
+import com.example.blue_hawk.application.usecase.auth.Access;
+
 import com.example.blue_hawk.application.dto.auth.CurrentUser;
 import com.example.blue_hawk.application.dto.openmatch.OpenMatchDtos.GameView;
 import com.example.blue_hawk.application.dto.openmatch.OpenMatchDtos.HostCommand;
@@ -71,7 +73,7 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
         Instant now = Instant.now();
         List<OpenMatch> matches;
         if (query.mine()) {
-            requireLogin(currentUser);
+            Access.requireLogin(currentUser);
             matches = openMatchRepository.findUpcomingInvolving(currentUser.userId(), now);
         } else {
             matches = openMatchRepository.findUpcoming(now, query.city(), parseOptionalId(query.boardgameId()), LIST_LIMIT);
@@ -88,7 +90,7 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
     @Transactional
     public OpenMatchView host(HostCommand command) {
         CurrentUser currentUser = orAnonymous(command.currentUser());
-        requireLogin(currentUser);
+        Access.requireLogin(currentUser);
 
         UserBoardgame copy = userBoardGameRepository.findById(parseId(command.userBoardgameId(), "userBoardgameId"))
                 .orElseThrow(() -> badRequest("userBoardgameId does not exist"));
@@ -150,7 +152,7 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
     @Transactional
     public OpenMatchView requestToJoin(String id, String message, CurrentUser currentUser) {
         CurrentUser user = orAnonymous(currentUser);
-        requireLogin(user);
+        Access.requireLogin(user);
         OpenMatch match = findMatch(id);
         if (match.isHostedBy(user.userId())) {
             throw conflict("The host is already in the match");
@@ -184,7 +186,7 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
     @Transactional
     public OpenMatchView cancelMyRequest(String id, CurrentUser currentUser) {
         CurrentUser user = orAnonymous(currentUser);
-        requireLogin(user);
+        Access.requireLogin(user);
         OpenMatch match = findMatch(id);
         OpenMatchRequest request = openMatchRepository.findRequest(match.getId(), user.userId())
                 .filter(OpenMatchRequest::isActive)
@@ -247,7 +249,7 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
     @Override
     public List<PlayedView> playedByMe(CurrentUser currentUser) {
         CurrentUser user = orAnonymous(currentUser);
-        requireLogin(user);
+        Access.requireLogin(user);
         return openMatchRepository.countPlayedByBoardgame(user.userId(), Instant.now()).entrySet().stream()
                 .map(e -> new PlayedView(e.getKey().toString(), e.getValue()))
                 .toList();
@@ -311,15 +313,9 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
     }
 
     private static void requireHost(OpenMatch match, CurrentUser currentUser) {
-        requireLogin(currentUser);
+        Access.requireLogin(currentUser);
         if (!match.isHostedBy(currentUser.userId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the host can do this");
-        }
-    }
-
-    private static void requireLogin(CurrentUser currentUser) {
-        if (!currentUser.authenticated()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
         }
     }
 

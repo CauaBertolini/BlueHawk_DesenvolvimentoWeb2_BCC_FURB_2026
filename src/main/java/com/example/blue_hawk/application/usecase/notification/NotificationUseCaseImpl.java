@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.usecase.notification;
 
+import com.example.blue_hawk.application.usecase.auth.Access;
+
 import com.example.blue_hawk.application.dto.auth.CurrentUser;
 import com.example.blue_hawk.application.dto.notification.NotificationDtos.ActorView;
 import com.example.blue_hawk.application.dto.notification.NotificationDtos.BoardgameView;
@@ -63,7 +65,7 @@ public class NotificationUseCaseImpl implements NotificationUseCase {
 
     @Override
     public List<NotificationView> list(int page, int size, CurrentUser currentUser) {
-        UUID userId = requireLogin(currentUser);
+        UUID userId = Access.requireUserId(currentUser);
         int safePage = Math.max(0, page);
         int safeSize = Math.min(MAX_PAGE_SIZE, Math.max(1, size));
         Lookups lookups = new Lookups();
@@ -74,13 +76,13 @@ public class NotificationUseCaseImpl implements NotificationUseCase {
 
     @Override
     public long unreadCount(CurrentUser currentUser) {
-        return notificationRepository.countUnread(requireLogin(currentUser));
+        return notificationRepository.countUnread(Access.requireUserId(currentUser));
     }
 
     @Override
     @Transactional
     public NotificationView markRead(String id, CurrentUser currentUser) {
-        UUID userId = requireLogin(currentUser);
+        UUID userId = Access.requireUserId(currentUser);
         Notification notification = parseOptionalId(id)
                 .flatMap(notificationRepository::findById)
                 .filter(n -> userId.equals(n.getUserId()))
@@ -96,7 +98,7 @@ public class NotificationUseCaseImpl implements NotificationUseCase {
     @Override
     @Transactional
     public int markAllRead(CurrentUser currentUser) {
-        UUID userId = requireLogin(currentUser);
+        UUID userId = Access.requireUserId(currentUser);
         int updated = notificationRepository.markAllRead(userId, Instant.now());
         if (updated > 0) realtimePublisher.publishToUser(userId, NotificationsChanged.INSTANCE);
         return updated;
@@ -171,13 +173,6 @@ public class NotificationUseCaseImpl implements NotificationUseCase {
     }
 
     // ── validações ──────────────────────────────────────────────────────────
-
-    private static UUID requireLogin(CurrentUser currentUser) {
-        if (currentUser == null || !currentUser.authenticated()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
-        }
-        return currentUser.userId();
-    }
 
     /** Id inválido é tratado como inexistente (404) */
     private static Optional<UUID> parseOptionalId(String value) {

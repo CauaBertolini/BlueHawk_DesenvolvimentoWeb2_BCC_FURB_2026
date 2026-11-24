@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.usecase.matchParticipant;
 
+import com.example.blue_hawk.application.dto.auth.CurrentUser;
+
 import com.example.blue_hawk.application.dto.matchParticipant.CreateMatchParticipantCommand;
 import com.example.blue_hawk.application.dto.matchParticipant.CreateMatchParticipantOutput;
 import com.example.blue_hawk.domain.entity.boardgame.Boardgame;
@@ -75,7 +77,7 @@ class CreateMatchParticipantUseCaseImplTest {
         when(matchParticipantRepository.save(any(MatchParticipant.class))).thenAnswer(i -> i.getArgument(0));
 
         CreateMatchParticipantOutput output = useCase.handle(
-                new CreateMatchParticipantCommand(matchId.toString(), userId.toString())
+                new CreateMatchParticipantCommand(matchId.toString(), userId.toString(), new CurrentUser(userId, false))
         );
 
         assertNotNull(output.id());
@@ -92,7 +94,7 @@ class CreateMatchParticipantUseCaseImplTest {
         when(matchParticipantRepository.countByMatchId(matchId)).thenReturn(4L);
 
         RuntimeException ex = assertThrows(RuntimeException.class, () ->
-                useCase.handle(new CreateMatchParticipantCommand(matchId.toString(), userId.toString()))
+                useCase.handle(new CreateMatchParticipantCommand(matchId.toString(), userId.toString(), new CurrentUser(userId, false)))
         );
 
         assertEquals("Match has reached maximum player limit: 4", ex.getMessage());

@@ -1,5 +1,7 @@
 package com.example.blue_hawk.infrastructure.realtime;
 
+import com.example.blue_hawk.application.port.RealtimeConnections;
+
 import com.example.blue_hawk.application.port.RealtimePublisher;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -26,7 +28,7 @@ import java.util.UUID;
  * </ul>
  */
 @Component
-public class WebSocketRealtimePublisher implements RealtimePublisher {
+public class WebSocketRealtimePublisher implements RealtimePublisher, RealtimeConnections {
 
     private static final Logger log = LoggerFactory.getLogger(WebSocketRealtimePublisher.class);
     /** Chave do recurso da transação com os envios pendentes (JSON → destinatários) */
@@ -51,6 +53,15 @@ public class WebSocketRealtimePublisher implements RealtimePublisher {
             }
         } catch (Exception e) {
             log.warn("Falha ao publicar evento em tempo real: {}", e.getMessage());
+        }
+    }
+
+    @Override
+    public void disconnectUser(UUID userId) {
+        try {
+            if (userId != null) registry.closeUser(userId, RealtimeWebSocketHandler.UNAUTHORIZED);
+        } catch (Exception e) {
+            log.warn("Falha ao derrubar conexões em tempo real: {}", e.getMessage());
         }
     }
 

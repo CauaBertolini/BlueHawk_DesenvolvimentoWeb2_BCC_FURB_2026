@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.usecase.negotiation;
 
+import com.example.blue_hawk.application.usecase.auth.Access;
+
 import com.example.blue_hawk.application.dto.auth.CurrentUser;
 import com.example.blue_hawk.application.dto.negotiation.OfferNegotiationDtos.GameView;
 import com.example.blue_hawk.application.dto.negotiation.OfferNegotiationDtos.MessageView;
@@ -92,7 +94,7 @@ public class OfferNegotiationUseCaseImpl implements OfferNegotiationUseCase {
     @Override
     @Transactional
     public NegotiationView start(String offerId, String body, BigDecimal proposedPrice, CurrentUser currentUser) {
-        UUID buyer = requireLogin(currentUser);
+        UUID buyer = Access.requireUserId(currentUser);
         Offer offer = offerRepository.findById(parseId(offerId, "offerId"))
                 .orElseThrow(() -> notFound("Offer not found"));
         UserBoardgame copy = copyOf(offer);
@@ -118,7 +120,7 @@ public class OfferNegotiationUseCaseImpl implements OfferNegotiationUseCase {
 
     @Override
     public NegotiationView get(String negotiationId, CurrentUser currentUser) {
-        Context ctx = load(negotiationId, requireLogin(currentUser));
+        Context ctx = load(negotiationId, Access.requireUserId(currentUser));
         requireParty(ctx);
         return view(ctx, new Names());
     }
@@ -126,7 +128,7 @@ public class OfferNegotiationUseCaseImpl implements OfferNegotiationUseCase {
     @Override
     @Transactional
     public List<MessageView> messages(String negotiationId, String after, CurrentUser currentUser) {
-        Context ctx = load(negotiationId, requireLogin(currentUser));
+        Context ctx = load(negotiationId, Access.requireUserId(currentUser));
         requireParty(ctx);
         Instant afterInstant = parseOptionalInstant(after);
 
@@ -141,7 +143,7 @@ public class OfferNegotiationUseCaseImpl implements OfferNegotiationUseCase {
     @Override
     @Transactional
     public MessageView send(String negotiationId, String body, BigDecimal proposedPrice, CurrentUser currentUser) {
-        Context ctx = load(negotiationId, requireLogin(currentUser));
+        Context ctx = load(negotiationId, Access.requireUserId(currentUser));
         requireParty(ctx);
         OfferNegotiation.Status status = ctx.negotiation().getStatus();
         if (status == OfferNegotiation.Status.CLOSED) {
@@ -158,7 +160,7 @@ public class OfferNegotiationUseCaseImpl implements OfferNegotiationUseCase {
     @Override
     @Transactional
     public NegotiationView accept(String negotiationId, String messageId, CurrentUser currentUser) {
-        Context ctx = load(negotiationId, requireLogin(currentUser));
+        Context ctx = load(negotiationId, Access.requireUserId(currentUser));
         requireParty(ctx);
         if (!ctx.isSeller()) {
             throw forbidden("Only the seller can accept a proposal");
@@ -293,13 +295,6 @@ public class OfferNegotiationUseCaseImpl implements OfferNegotiationUseCase {
     }
 
     // ── validações ──────────────────────────────────────────────────────────
-
-    private static UUID requireLogin(CurrentUser currentUser) {
-        if (currentUser == null || !currentUser.authenticated()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
-        }
-        return currentUser.userId();
-    }
 
     private static UUID parseId(String value, String field) {
         try {

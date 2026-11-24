@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.usecase.user;
 
+import com.example.blue_hawk.application.usecase.auth.Access;
+
 import com.example.blue_hawk.application.dto.auth.CurrentUser;
 import com.example.blue_hawk.application.dto.user.UserProfileDtos.MyProfileView;
 import com.example.blue_hawk.application.dto.user.UserProfileDtos.UpdateMyProfileCommand;
@@ -38,14 +40,14 @@ public class UserProfileUseCaseImpl implements UserProfileUseCase {
 
     @Override
     public MyProfileView getMine(CurrentUser currentUser) {
-        UUID me = requireLogin(currentUser);
+        UUID me = Access.requireUserId(currentUser);
         return view(load(me));
     }
 
     @Override
     @Transactional
     public MyProfileView updateMine(UpdateMyProfileCommand command, CurrentUser currentUser) {
-        UUID me = requireLogin(currentUser);
+        UUID me = Access.requireUserId(currentUser);
         if (command == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "body is required");
         }
@@ -80,7 +82,7 @@ public class UserProfileUseCaseImpl implements UserProfileUseCase {
     @Override
     @Transactional
     public MyProfileView uploadAvatar(byte[] data, CurrentUser currentUser) {
-        UUID me = requireLogin(currentUser);
+        UUID me = Access.requireUserId(currentUser);
         if (data == null || data.length == 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "file is required");
         }
@@ -105,7 +107,7 @@ public class UserProfileUseCaseImpl implements UserProfileUseCase {
     @Override
     @Transactional
     public MyProfileView removeAvatar(CurrentUser currentUser) {
-        UUID me = requireLogin(currentUser);
+        UUID me = Access.requireUserId(currentUser);
         UserProfile profile = load(me);
         if (!profile.isPersisted()) {
             // Nada gravado: continua nos padrões, sem criar linha
@@ -184,12 +186,5 @@ public class UserProfileUseCaseImpl implements UserProfileUseCase {
                     "avatarPreset must contain only lowercase letters, digits and hyphens");
         }
         return preset;
-    }
-
-    static UUID requireLogin(CurrentUser currentUser) {
-        if (currentUser == null || !currentUser.authenticated()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
-        }
-        return currentUser.userId();
     }
 }

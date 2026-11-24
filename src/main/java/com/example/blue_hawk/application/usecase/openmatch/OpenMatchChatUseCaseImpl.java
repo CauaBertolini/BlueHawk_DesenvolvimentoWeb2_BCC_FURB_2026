@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.usecase.openmatch;
 
+import com.example.blue_hawk.application.usecase.auth.Access;
+
 import com.example.blue_hawk.application.dto.auth.CurrentUser;
 import com.example.blue_hawk.application.dto.openmatch.OpenMatchChatDtos.ChatsView;
 import com.example.blue_hawk.application.dto.openmatch.OpenMatchChatDtos.LastMessageView;
@@ -71,7 +73,7 @@ public class OpenMatchChatUseCaseImpl implements OpenMatchChatUseCase {
 
     @Override
     public ChatsView chats(String openMatchId, CurrentUser currentUser) {
-        UUID viewer = requireLogin(currentUser);
+        UUID viewer = Access.requireUserId(currentUser);
         OpenMatch match = findMatch(openMatchId);
         boolean isHost = match.isHostedBy(viewer);
         Optional<OpenMatchRequest> myRequest = isHost ? Optional.empty()
@@ -123,7 +125,7 @@ public class OpenMatchChatUseCaseImpl implements OpenMatchChatUseCase {
     @Override
     @Transactional
     public List<MessageView> messages(String openMatchId, String withUserId, String after, CurrentUser currentUser) {
-        UUID viewer = requireLogin(currentUser);
+        UUID viewer = Access.requireUserId(currentUser);
         OpenMatch match = findMatch(openMatchId);
         UUID with = parseOptionalId(withUserId, "with");
         Instant afterInstant = parseOptionalInstant(after);
@@ -141,7 +143,7 @@ public class OpenMatchChatUseCaseImpl implements OpenMatchChatUseCase {
     @Override
     @Transactional
     public MessageView send(String openMatchId, String body, String recipientId, CurrentUser currentUser) {
-        UUID sender = requireLogin(currentUser);
+        UUID sender = Access.requireUserId(currentUser);
         OpenMatch match = findMatch(openMatchId);
         UUID recipient = parseOptionalId(recipientId, "recipientId");
         requireAccess(match, sender, recipient, true);
@@ -315,13 +317,6 @@ public class OpenMatchChatUseCaseImpl implements OpenMatchChatUseCase {
         }
         return openMatchRepository.findById(matchId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Match not found"));
-    }
-
-    private static UUID requireLogin(CurrentUser currentUser) {
-        if (currentUser == null || !currentUser.authenticated()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
-        }
-        return currentUser.userId();
     }
 
     private static UUID parseOptionalId(String value, String field) {

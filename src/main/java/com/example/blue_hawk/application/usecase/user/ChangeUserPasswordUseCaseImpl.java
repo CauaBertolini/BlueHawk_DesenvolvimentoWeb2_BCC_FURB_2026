@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.usecase.user;
 
+import com.example.blue_hawk.application.usecase.auth.Access;
+
 import com.example.blue_hawk.application.dto.user.ChangeUserPasswordCommand;
 import com.example.blue_hawk.domain.entity.user.User;
 import com.example.blue_hawk.domain.repository.IUserRepository;
@@ -23,7 +25,12 @@ public class ChangeUserPasswordUseCaseImpl implements ChangeUserPasswordUseCase 
 
     @Override
     public void handle(ChangeUserPasswordCommand command) {
-        User user = userRepository.findById(UUID.fromString(command.id()))
+        UUID userId = UUID.fromString(command.id());
+        // Só o próprio usuário: nem um ADMIN troca a senha de outra pessoa
+        if (!Access.requireLogin(command.currentUser()).isSelf(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only change your own password");
+        }
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         if (!passwordEncoder.matches(command.currentPassword(), user.getPasswordHash())) {

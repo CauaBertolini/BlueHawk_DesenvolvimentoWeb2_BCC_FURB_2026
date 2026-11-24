@@ -5,7 +5,7 @@ import com.example.blue_hawk.application.dto.user.AuthenticateUserOutput;
 import com.example.blue_hawk.domain.entity.user.User;
 import com.example.blue_hawk.domain.entity.user.UserRole;
 import com.example.blue_hawk.domain.repository.IUserRepository;
-import com.example.blue_hawk.infrastructure.security.JwtTokenService;
+import com.example.blue_hawk.application.port.TokenIssuer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -33,7 +33,7 @@ class AuthenticateUserUseCaseImplTest {
     private PasswordEncoder passwordEncoder;
 
     @Mock
-    private JwtTokenService tokenService;
+    private TokenIssuer tokenService;
 
     @InjectMocks
     private AuthenticateUserUseCaseImpl useCase;

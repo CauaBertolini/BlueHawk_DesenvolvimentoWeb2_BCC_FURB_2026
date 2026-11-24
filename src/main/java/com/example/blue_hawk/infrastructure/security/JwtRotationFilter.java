@@ -31,7 +31,8 @@ public class JwtRotationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        if (authentication instanceof JwtAuthenticationToken jwtAuth && authentication.isAuthenticated()) {
+        if (authentication instanceof JwtAuthenticationToken jwtAuth && authentication.isAuthenticated()
+                && jwtTokenService.shouldRotate(jwtAuth.getToken())) {
             // O papel vem das authorities (lidas do banco pelo UserRoleJwtAuthenticationConverter)
             String currentRole = jwtAuth.getAuthorities().stream()
                     .map(GrantedAuthority::getAuthority)
