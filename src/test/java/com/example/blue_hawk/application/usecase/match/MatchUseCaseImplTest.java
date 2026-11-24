@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.usecase.match;
 
+import com.example.blue_hawk.application.dto.auth.CurrentUser;
+
 import com.example.blue_hawk.application.dto.match.CreateMatchCommand;
 import com.example.blue_hawk.application.dto.match.CreateMatchOutput;
 import com.example.blue_hawk.application.dto.match.GetMatchOutput;
@@ -48,6 +50,8 @@ class MatchUseCaseImplTest {
     private UpdateMatchUseCaseImpl updateMatchUseCase;
     private ListMatchUseCaseImpl listMatchUseCase;
 
+    private static final UUID HOST = UUID.randomUUID();
+
     private UUID userBoardgameId;
     private UUID boardgameId;
     private UserBoardgame userBoardgame;
@@ -62,7 +66,7 @@ class MatchUseCaseImplTest {
 
         userBoardgameId = UUID.randomUUID();
         boardgameId = UUID.randomUUID();
-        userBoardgame = new UserBoardgame(userBoardgameId, UUID.randomUUID(), boardgameId);
+        userBoardgame = new UserBoardgame(userBoardgameId, HOST, boardgameId);
         boardgame = new Boardgame(boardgameId, "Catan", "Trade build settle", 1995, 4, 90);
     }
 
@@ -72,7 +76,7 @@ class MatchUseCaseImplTest {
         when(boardgameRepository.findById(boardgameId)).thenReturn(Optional.of(boardgame));
         when(matchRepository.save(any(Match.class))).thenAnswer(i -> i.getArgument(0));
 
-        CreateMatchOutput output = createMatchUseCase.handle(new CreateMatchCommand(userBoardgameId.toString()));
+        CreateMatchOutput output = createMatchUseCase.handle(new CreateMatchCommand(userBoardgameId.toString(), new CurrentUser(HOST, false)));
 
         assertNotNull(output.id());
         assertEquals(userBoardgameId.toString(), output.userBoardgameId());
@@ -106,7 +110,7 @@ class MatchUseCaseImplTest {
         when(matchRepository.save(any(Match.class))).thenAnswer(i -> i.getArgument(0));
 
         UpdateMatchOutput output = updateMatchUseCase.handle(
-                new UpdateMatchCommand(matchId.toString(), userBoardgameId.toString())
+                new UpdateMatchCommand(matchId.toString(), userBoardgameId.toString(), new CurrentUser(HOST, false))
         );
 
         assertEquals(matchId.toString(), output.id());

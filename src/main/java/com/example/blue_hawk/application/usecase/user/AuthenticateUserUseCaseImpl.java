@@ -4,7 +4,7 @@ import com.example.blue_hawk.application.dto.user.AuthenticateUserCommand;
 import com.example.blue_hawk.application.dto.user.AuthenticateUserOutput;
 import com.example.blue_hawk.domain.entity.user.User;
 import com.example.blue_hawk.domain.repository.IUserRepository;
-import com.example.blue_hawk.infrastructure.security.JwtTokenService;
+import com.example.blue_hawk.application.port.TokenIssuer;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -15,11 +15,11 @@ public class AuthenticateUserUseCaseImpl implements AuthenticateUserUseCase {
 
     private final IUserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtTokenService tokenService;
+    private final TokenIssuer tokenService;
 
     public AuthenticateUserUseCaseImpl(IUserRepository userRepository,
                                        PasswordEncoder passwordEncoder,
-                                       JwtTokenService tokenService) {
+                                       TokenIssuer tokenService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;

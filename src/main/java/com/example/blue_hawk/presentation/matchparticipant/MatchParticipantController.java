@@ -1,5 +1,7 @@
 package com.example.blue_hawk.presentation.matchparticipant;
 
+import com.example.blue_hawk.application.dto.auth.CurrentUser;
+
 import com.example.blue_hawk.application.dto.matchParticipant.CreateMatchParticipantCommand;
 import com.example.blue_hawk.application.dto.matchParticipant.CreateMatchParticipantOutput;
 import com.example.blue_hawk.application.dto.matchParticipant.DeleteMatchParticipantCommand;
@@ -54,10 +56,12 @@ public class MatchParticipantController {
     }
 
     @PostMapping
-    public ResponseEntity<MatchParticipantResponse> create(@RequestBody MatchParticipantRequest request) {
+    public ResponseEntity<MatchParticipantResponse> create(@RequestBody MatchParticipantRequest request,
+                                                           CurrentUser currentUser) {
         CreateMatchParticipantCommand command = new CreateMatchParticipantCommand(
                 request.matchId(),
-                request.userId()
+                request.userId(),
+                currentUser
         );
         CreateMatchParticipantOutput output = createMatchParticipantUseCase.handle(command);
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(output));
@@ -90,20 +94,22 @@ public class MatchParticipantController {
     @PutMapping("/{uuid}")
     public ResponseEntity<MatchParticipantResponse> update(
             @PathVariable("uuid") String uuid,
-            @RequestBody MatchParticipantRequest request) {
+            @RequestBody MatchParticipantRequest request,
+            CurrentUser currentUser) {
 
         UpdateMatchParticipantCommand command = new UpdateMatchParticipantCommand(
                 uuid,
                 request.matchId(),
-                request.userId()
+                request.userId(),
+                currentUser
         );
         UpdateMatchParticipantOutput output = updateMatchParticipantUseCase.handle(command);
         return ResponseEntity.ok(toResponse(output));
     }
 
     @DeleteMapping("/{uuid}")
-    public ApiResponse<Void> delete(@PathVariable("uuid") String uuid) {
-        deleteMatchParticipantUseCase.handle(new DeleteMatchParticipantCommand(uuid));
+    public ApiResponse<Void> delete(@PathVariable("uuid") String uuid, CurrentUser currentUser) {
+        deleteMatchParticipantUseCase.handle(new DeleteMatchParticipantCommand(uuid, currentUser));
         return ApiResponse.empty();
     }
 

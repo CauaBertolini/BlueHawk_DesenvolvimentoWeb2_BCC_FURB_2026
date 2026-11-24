@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.usecase.match;
 
+import com.example.blue_hawk.application.usecase.Paging;
+
 import com.example.blue_hawk.application.dto.match.ListMatchOutput;
 import com.example.blue_hawk.application.dto.match.ListMatchQuery;
 import com.example.blue_hawk.domain.entity.boardgame.Boardgame;
@@ -32,7 +34,7 @@ public class ListMatchUseCaseImpl implements ListMatchUseCase {
         UUID userBoardgameId = query.userBoardgameId() != null ? UUID.fromString(query.userBoardgameId()) : null;
 
         return matchRepository
-                .findAll(userBoardgameId, query.page(), query.size())
+                .findAll(userBoardgameId, Paging.page(query.page()), Paging.size(query.size()))
                 .getContent()
                 .stream()
                 .map(m -> {

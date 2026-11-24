@@ -1,6 +1,9 @@
 package com.example.blue_hawk.application.dto.match;
 
+import com.example.blue_hawk.application.dto.auth.CurrentUser;
+
 public record CreateMatchCommand(
-        String userBoardgameId
+        String userBoardgameId,
+        CurrentUser currentUser
 ) {
 }

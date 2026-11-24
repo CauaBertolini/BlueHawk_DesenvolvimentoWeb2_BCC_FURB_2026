@@ -29,6 +29,8 @@ public class GetOfferUseCaseImpl implements GetOfferUseCase {
                 offer.getPrice(),
                 offer.getStatus().name(),
                 offer.getDescription(),
+                OfferFields.nameOf(offer.getCondition()),
+                OfferFields.nameOf(offer.getDeliveryMethod()),
                 offer.getCreatedAt(),
                 offer.getUpdatedAt()
         );

@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.usecase.offer;
 
+import com.example.blue_hawk.application.usecase.Paging;
+
 import com.example.blue_hawk.application.dto.offer.ListOfferOutput;
 import com.example.blue_hawk.application.dto.offer.ListOfferQuery;
 import com.example.blue_hawk.domain.entity.offer.OfferStatus;
@@ -25,7 +27,7 @@ public class ListOfferUseCaseImpl implements ListOfferUseCase {
         OfferStatus status = query.status() != null ? OfferStatus.valueOf(query.status()) : null;
 
         return offerRepository
-                .findAll(userId, boardgameId, status, query.page(), query.size())
+                .findAll(userId, boardgameId, status, Paging.page(query.page()), Paging.size(query.size()))
                 .getContent()
                 .stream()
                 .map(o -> new ListOfferOutput(
@@ -34,6 +36,8 @@ public class ListOfferUseCaseImpl implements ListOfferUseCase {
                         o.getPrice(),
                         o.getStatus().name(),
                         o.getDescription(),
+                        OfferFields.nameOf(o.getCondition()),
+                        OfferFields.nameOf(o.getDeliveryMethod()),
                         o.getCreatedAt(),
                         o.getUpdatedAt()))
                 .toList();

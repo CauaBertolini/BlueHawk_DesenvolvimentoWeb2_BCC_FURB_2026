@@ -1,5 +1,6 @@
 package com.example.blue_hawk.infrastructure.security;
 
+import com.example.blue_hawk.domain.repository.IUserRepository;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -39,7 +40,8 @@ import java.util.List;
 public class SecurityConfig {
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtRotationFilter jwtRotationFilter) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtRotationFilter jwtRotationFilter,
+                                                   IUserRepository userRepository) throws Exception {
         return http
                 // API stateless com Bearer token (sem cookies), então CSRF não se aplica.
                 .csrf(AbstractHttpConfigurer::disable)
@@ -48,13 +50,24 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/users", "/users/authenticate").permitAll()
-                        // Feed público do site: só a listagem de jogos é aberta, escrita continua autenticada.
-                        .requestMatchers(HttpMethod.GET, "/boardgames").permitAll()
+                        // Wiki pública: listagem e página do jogo (o caso de uso esconde jogo não aprovado de visitante); escrita continua autenticada.
+                        .requestMatchers(HttpMethod.GET, "/boardgames", "/boardgames/*").permitAll()
+                        // Categorias (cadastro/filtros) e fotos de capa (<img> não envia token)
+                        .requestMatchers(HttpMethod.GET, "/categories", "/boardgames/*/cover").permitAll()
+                        // Foto de perfil (avatar): idem, <img> não envia token; o resto do perfil exige login
+                        .requestMatchers(HttpMethod.GET, "/users/*/avatar").permitAll()
+                        // Matchmaking: a vitrine de partidas é pública; ações exigem login (checado no caso de uso)
+                        .requestMatchers(HttpMethod.GET, "/open-matches", "/open-matches/*").permitAll()
+                        // Vitrine da Loja (anúncios ativos de jogos do catálogo)
+                        .requestMatchers(HttpMethod.GET, "/store/offers", "/store/offers/*").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/error").permitAll()
+                        // WebSocket de tempo real: a autenticação acontece dentro do socket (mensagem "auth")
+                        .requestMatchers("/ws").permitAll()
                         // Landing page estática (src/main/resources/static/index.html)
                         .requestMatchers(HttpMethod.GET, "/", "/index.html").permitAll()
                         .anyRequest().authenticated())
-                .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
+                .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(
+                        new UserRoleJwtAuthenticationConverter(userRepository))))
                 .addFilterAfter(jwtRotationFilter, BearerTokenAuthenticationFilter.class)
                 .build();
     }

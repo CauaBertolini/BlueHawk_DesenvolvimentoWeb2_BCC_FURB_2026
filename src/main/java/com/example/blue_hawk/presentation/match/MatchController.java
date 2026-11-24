@@ -1,5 +1,7 @@
 package com.example.blue_hawk.presentation.match;
 
+import com.example.blue_hawk.application.dto.auth.CurrentUser;
+
 import com.example.blue_hawk.application.dto.match.CreateMatchCommand;
 import com.example.blue_hawk.application.dto.match.CreateMatchOutput;
 import com.example.blue_hawk.application.dto.match.DeleteMatchCommand;
@@ -54,9 +56,10 @@ public class MatchController {
     }
 
     @PostMapping
-    public ResponseEntity<MatchResponse> create(@RequestBody MatchRequest request) {
+    public ResponseEntity<MatchResponse> create(@RequestBody MatchRequest request, CurrentUser currentUser) {
         CreateMatchCommand command = new CreateMatchCommand(
-                request.userBoardgameId()
+                request.userBoardgameId(),
+                currentUser
         );
         CreateMatchOutput output = createMatchUseCase.handle(command);
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(output));
@@ -88,19 +91,21 @@ public class MatchController {
     @PutMapping("/{uuid}")
     public ResponseEntity<MatchResponse> update(
             @PathVariable("uuid") String uuid,
-            @RequestBody MatchRequest request) {
+            @RequestBody MatchRequest request,
+            CurrentUser currentUser) {
 
         UpdateMatchCommand command = new UpdateMatchCommand(
                 uuid,
-                request.userBoardgameId()
+                request.userBoardgameId(),
+                currentUser
         );
         UpdateMatchOutput output = updateMatchUseCase.handle(command);
         return ResponseEntity.ok(toResponse(output));
     }
 
     @DeleteMapping("/{uuid}")
-    public ApiResponse<Void> delete(@PathVariable("uuid") String uuid) {
-        deleteMatchUseCase.handle(new DeleteMatchCommand(uuid));
+    public ApiResponse<Void> delete(@PathVariable("uuid") String uuid, CurrentUser currentUser) {
+        deleteMatchUseCase.handle(new DeleteMatchCommand(uuid, currentUser));
         return ApiResponse.empty();
     }
 

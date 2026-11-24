@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.http.HttpHeaders;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -17,6 +18,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.eq;
@@ -63,16 +65,35 @@ class JwtRotationFilterTest {
                 Map.of("sub", "user-123", "scope", "ADMIN")
         );
 
-        JwtAuthenticationToken authentication = new JwtAuthenticationToken(jwt, Collections.emptyList());
+        // O token antigo dizia ADMIN, mas o papel atual (vindo do banco, nas authorities) é USER:
+        // o token renovado deve sair com o papel atual
+        JwtAuthenticationToken authentication = new JwtAuthenticationToken(
+                jwt, List.of(new SimpleGrantedAuthority("SCOPE_USER")));
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        when(jwtTokenService.rotateToken(jwt)).thenReturn("new-rotated-token");
+        when(jwtTokenService.shouldRotate(jwt)).thenReturn(true);
+        when(jwtTokenService.rotateToken(jwt, "USER")).thenReturn("new-rotated-token");
 
         filter.doFilterInternal(request, response, filterChain);
 
         verify(response).setHeader(HttpHeaders.AUTHORIZATION, "Bearer new-rotated-token");
         verify(response).setHeader("accessToken", "new-rotated-token");
         verify(response).setHeader("X-New-Token", "new-rotated-token");
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @Test
+    void shouldKeepAFreshTokenInsteadOfRotatingOnEveryRequest() throws ServletException, IOException {
+        Jwt jwt = new Jwt("fresh-token", Instant.now(), Instant.now().plusSeconds(3600),
+                Map.of("alg", "HS256"), Map.of("sub", "user-123"));
+        SecurityContextHolder.getContext().setAuthentication(
+                new JwtAuthenticationToken(jwt, List.of(new SimpleGrantedAuthority("SCOPE_USER"))));
+        when(jwtTokenService.shouldRotate(jwt)).thenReturn(false);
+
+        filter.doFilterInternal(request, response, filterChain);
+
+        verify(jwtTokenService, never()).rotateToken(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        verify(response, never()).setHeader(eq("X-New-Token"), org.mockito.ArgumentMatchers.anyString());
         verify(filterChain).doFilter(request, response);
     }
 

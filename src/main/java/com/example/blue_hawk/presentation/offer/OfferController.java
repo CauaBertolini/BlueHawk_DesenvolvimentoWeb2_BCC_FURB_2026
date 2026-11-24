@@ -1,5 +1,7 @@
 package com.example.blue_hawk.presentation.offer;
 
+import com.example.blue_hawk.application.dto.auth.CurrentUser;
+
 import com.example.blue_hawk.application.dto.offer.CreateOfferCommand;
 import com.example.blue_hawk.application.dto.offer.CreateOfferOutput;
 import com.example.blue_hawk.application.dto.offer.DeleteOfferCommand;
@@ -62,12 +64,15 @@ public class OfferController {
     }
 
     @PostMapping
-    public ResponseEntity<OfferResponse> create(@RequestBody OfferRequest request) {
+    public ResponseEntity<OfferResponse> create(@RequestBody OfferRequest request, CurrentUser currentUser) {
         CreateOfferCommand command = new CreateOfferCommand(
                 request.userBoardgameId(),
                 request.price(),
                 request.status(),
-                request.description()
+                request.description(),
+                request.condition(),
+                request.deliveryMethod(),
+                currentUser
         );
         CreateOfferOutput output = createOfferUseCase.handle(command);
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(output));
@@ -93,7 +98,7 @@ public class OfferController {
 
         List<OfferResponse> response = output.stream()
                 .map(o -> new OfferResponse(o.id(), o.userBoardgameId(), o.price(),
-                        o.status(), o.description(), o.createdAt(), o.updatedAt()))
+                        o.status(), o.description(), o.condition(), o.deliveryMethod(), o.createdAt(), o.updatedAt()))
                 .toList();
 
         return ResponseEntity.ok(response);
@@ -102,14 +107,18 @@ public class OfferController {
     @PutMapping("/{uuid}")
     public ResponseEntity<OfferResponse> update(
             @PathVariable("uuid") String uuid,
-            @RequestBody OfferRequest request) {
+            @RequestBody OfferRequest request,
+            CurrentUser currentUser) {
 
         UpdateOfferCommand command = new UpdateOfferCommand(
                 uuid,
                 request.userBoardgameId(),
                 request.price(),
                 request.status(),
-                request.description()
+                request.description(),
+                request.condition(),
+                request.deliveryMethod(),
+                currentUser
         );
         UpdateOfferOutput output = updateOfferUseCase.handle(command);
         return ResponseEntity.ok(toResponse(output));
@@ -118,21 +127,25 @@ public class OfferController {
     @PatchMapping("/{uuid}")
     public ResponseEntity<OfferResponse> patch(
             @PathVariable("uuid") String uuid,
-            @RequestBody OfferPatchRequest request) {
+            @RequestBody OfferPatchRequest request,
+            CurrentUser currentUser) {
 
         PatchOfferCommand command = new PatchOfferCommand(
                 uuid,
                 request.price(),
                 request.status(),
-                request.description()
+                request.description(),
+                request.condition(),
+                request.deliveryMethod(),
+                currentUser
         );
         PatchOfferOutput output = patchOfferUseCase.handle(command);
         return ResponseEntity.ok(toResponse(output));
     }
 
     @DeleteMapping("/{uuid}")
-    public ApiResponse<Void> delete(@PathVariable("uuid") String uuid) {
-        deleteOfferUseCase.handle(new DeleteOfferCommand(uuid));
+    public ApiResponse<Void> delete(@PathVariable("uuid") String uuid, CurrentUser currentUser) {
+        deleteOfferUseCase.handle(new DeleteOfferCommand(uuid, currentUser));
         return ApiResponse.empty();
     }
 
@@ -140,21 +153,21 @@ public class OfferController {
 
     private OfferResponse toResponse(CreateOfferOutput o) {
         return new OfferResponse(o.id(), o.userBoardgameId(), o.price(),
-                o.status(), o.description(), o.createdAt(), o.updatedAt());
+                o.status(), o.description(), o.condition(), o.deliveryMethod(), o.createdAt(), o.updatedAt());
     }
 
     private OfferResponse toResponse(GetOfferOutput o) {
         return new OfferResponse(o.id(), o.userBoardgameId(), o.price(),
-                o.status(), o.description(), o.createdAt(), o.updatedAt());
+                o.status(), o.description(), o.condition(), o.deliveryMethod(), o.createdAt(), o.updatedAt());
     }
 
     private OfferResponse toResponse(UpdateOfferOutput o) {
         return new OfferResponse(o.id(), o.userBoardgameId(), o.price(),
-                o.status(), o.description(), o.createdAt(), o.updatedAt());
+                o.status(), o.description(), o.condition(), o.deliveryMethod(), o.createdAt(), o.updatedAt());
     }
 
     private OfferResponse toResponse(PatchOfferOutput o) {
         return new OfferResponse(o.id(), o.userBoardgameId(), o.price(),
-                o.status(), o.description(), o.createdAt(), o.updatedAt());
+                o.status(), o.description(), o.condition(), o.deliveryMethod(), o.createdAt(), o.updatedAt());
     }
 }

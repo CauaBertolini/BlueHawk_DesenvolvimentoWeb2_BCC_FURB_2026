@@ -1,5 +1,6 @@
 package com.example.blue_hawk.application.usecase.matchParticipant;
 
+
 import com.example.blue_hawk.application.dto.matchParticipant.CreateMatchParticipantCommand;
 import com.example.blue_hawk.application.dto.matchParticipant.CreateMatchParticipantOutput;
 import com.example.blue_hawk.domain.entity.boardgame.Boardgame;
@@ -34,6 +35,7 @@ public class CreateMatchParticipantUseCaseImpl implements CreateMatchParticipant
 
     @Override
     public CreateMatchParticipantOutput handle(CreateMatchParticipantCommand command) {
+        MatchParticipantAccess.requireJoinAsSelf(command.matchId(), command.userId(), command.currentUser());
         UUID matchId = UUID.fromString(command.matchId());
 
         Match match = matchRepository.findById(matchId)

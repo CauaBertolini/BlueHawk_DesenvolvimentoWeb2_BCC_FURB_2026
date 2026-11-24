@@ -11,6 +11,10 @@ public class Offer {
     private BigDecimal price;
     private OfferStatus status;
     private String description;
+    /** Estado de conservação; null em anúncios antigos */
+    private OfferCondition condition;
+    /** Forma de entrega; null em anúncios antigos */
+    private DeliveryMethod deliveryMethod;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -35,6 +39,16 @@ public class Offer {
         this.updatedAt = updatedAt;
     }
 
+    public boolean isActive() {
+        return status == OfferStatus.ACTIVE;
+    }
+
+    /** Vendido numa negociação aceita pelo vendedor */
+    public void markSold() {
+        this.status = OfferStatus.SOLD;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 
@@ -49,6 +63,12 @@ public class Offer {
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+
+    public OfferCondition getCondition() { return condition; }
+    public void setCondition(OfferCondition condition) { this.condition = condition; }
+
+    public DeliveryMethod getDeliveryMethod() { return deliveryMethod; }
+    public void setDeliveryMethod(DeliveryMethod deliveryMethod) { this.deliveryMethod = deliveryMethod; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

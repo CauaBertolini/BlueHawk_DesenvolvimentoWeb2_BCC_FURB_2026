@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.usecase.user;
 
+import com.example.blue_hawk.application.dto.auth.CurrentUser;
+
 import com.example.blue_hawk.application.dto.user.UpdateUserCommand;
 import com.example.blue_hawk.application.dto.user.UserOutput;
 import com.example.blue_hawk.domain.entity.user.User;
@@ -41,7 +43,7 @@ class UpdateUserUseCaseImplTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        UserOutput output = useCase.handle(new UpdateUserCommand(userId.toString(), "  Alice Smith ", null));
+        UserOutput output = useCase.handle(new UpdateUserCommand(userId.toString(), "  Alice Smith ", null, new CurrentUser(userId, false)));
 
         assertEquals("Alice Smith", output.name());
         assertEquals("alice@example.com", output.email());
@@ -54,7 +56,7 @@ class UpdateUserUseCaseImplTest {
         when(userRepository.findByEmail("alice.new@example.com")).thenReturn(Optional.empty());
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        UserOutput output = useCase.handle(new UpdateUserCommand(userId.toString(), null, "Alice.New@Example.com"));
+        UserOutput output = useCase.handle(new UpdateUserCommand(userId.toString(), null, "Alice.New@Example.com", new CurrentUser(userId, false)));
 
         assertEquals("Alice", output.name());
         assertEquals("alice.new@example.com", output.email());
@@ -66,7 +68,7 @@ class UpdateUserUseCaseImplTest {
         when(userRepository.findByEmail("alice@example.com")).thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        UserOutput output = useCase.handle(new UpdateUserCommand(userId.toString(), "Alice", "alice@example.com"));
+        UserOutput output = useCase.handle(new UpdateUserCommand(userId.toString(), "Alice", "alice@example.com", new CurrentUser(userId, false)));
 
         assertEquals("alice@example.com", output.email());
     }
@@ -78,7 +80,7 @@ class UpdateUserUseCaseImplTest {
         when(userRepository.findByEmail("bob@example.com")).thenReturn(Optional.of(otherUser));
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
-                () -> useCase.handle(new UpdateUserCommand(userId.toString(), null, "bob@example.com")));
+                () -> useCase.handle(new UpdateUserCommand(userId.toString(), null, "bob@example.com", new CurrentUser(userId, false))));
 
         assertEquals(HttpStatus.CONFLICT, exception.getStatusCode());
         verify(userRepository, never()).save(any());
@@ -89,7 +91,7 @@ class UpdateUserUseCaseImplTest {
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
-                () -> useCase.handle(new UpdateUserCommand(userId.toString(), "Alice", null)));
+                () -> useCase.handle(new UpdateUserCommand(userId.toString(), "Alice", null, new CurrentUser(userId, false))));
 
         assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
         verify(userRepository, never()).save(any());

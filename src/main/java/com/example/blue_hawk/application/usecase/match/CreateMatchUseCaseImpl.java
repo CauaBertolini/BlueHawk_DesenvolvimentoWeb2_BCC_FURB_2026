@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.usecase.match;
 
+import com.example.blue_hawk.application.usecase.auth.Access;
+
 import com.example.blue_hawk.application.dto.match.CreateMatchCommand;
 import com.example.blue_hawk.application.dto.match.CreateMatchOutput;
 import com.example.blue_hawk.domain.entity.boardgame.Boardgame;
@@ -29,10 +31,13 @@ public class CreateMatchUseCaseImpl implements CreateMatchUseCase {
 
     @Override
     public CreateMatchOutput handle(CreateMatchCommand command) {
+        Access.requireLogin(command.currentUser());
         UUID userBoardgameId = UUID.fromString(command.userBoardgameId());
 
         UserBoardgame userBoardgame = userBoardGameRepository.findById(userBoardgameId)
                 .orElseThrow(() -> new RuntimeException("UserBoardgame not found with id: " + userBoardgameId));
+        // A partida é de quem é dono da cópia (ou ADMIN)
+        Access.requireShelfOwner(userBoardgame, command.currentUser());
 
         Boardgame boardgame = boardgameRepository.findById(userBoardgame.getBoardgameId())
                 .orElseThrow(() -> new RuntimeException("Boardgame not found with id: " + userBoardgame.getBoardgameId()));
