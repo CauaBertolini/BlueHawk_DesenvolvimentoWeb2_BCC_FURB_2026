@@ -61,6 +61,8 @@ public class SecurityConfig {
                         // Vitrine da Loja (anúncios ativos de jogos do catálogo)
                         .requestMatchers(HttpMethod.GET, "/store/offers", "/store/offers/*").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/error").permitAll()
+                        // WebSocket de tempo real: a autenticação acontece dentro do socket (mensagem "auth")
+                        .requestMatchers("/ws").permitAll()
                         // Landing page estática (src/main/resources/static/index.html)
                         .requestMatchers(HttpMethod.GET, "/", "/index.html").permitAll()
                         .anyRequest().authenticated())

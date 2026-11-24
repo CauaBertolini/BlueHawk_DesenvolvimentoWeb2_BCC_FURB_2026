@@ -6,6 +6,9 @@ import com.example.blue_hawk.application.dto.negotiation.OfferNegotiationDtos.Me
 import com.example.blue_hawk.application.dto.negotiation.OfferNegotiationDtos.NegotiationView;
 import com.example.blue_hawk.application.dto.negotiation.OfferNegotiationDtos.OfferView;
 import com.example.blue_hawk.application.dto.negotiation.OfferNegotiationDtos.PartyView;
+import com.example.blue_hawk.application.dto.realtime.RealtimeEvents.ChatMessage;
+import com.example.blue_hawk.application.dto.realtime.RealtimeEvents.NegotiationChannel;
+import com.example.blue_hawk.application.port.RealtimePublisher;
 import com.example.blue_hawk.application.usecase.notification.NotificationService;
 import com.example.blue_hawk.domain.entity.boardgame.Boardgame;
 import com.example.blue_hawk.domain.entity.negotiation.OfferNegotiation;
@@ -46,6 +49,7 @@ public class OfferNegotiationUseCaseImpl implements OfferNegotiationUseCase {
     private final IBoardgameRepository boardgameRepository;
     private final IUserRepository userRepository;
     private final NotificationService notificationService;
+    private final RealtimePublisher realtimePublisher;
 
     public OfferNegotiationUseCaseImpl(IOfferNegotiationRepository negotiationRepository,
                                        IOfferNegotiationMessageRepository messageRepository,
@@ -53,7 +57,9 @@ public class OfferNegotiationUseCaseImpl implements OfferNegotiationUseCase {
                                        IUserBoardGameRepository userBoardGameRepository,
                                        IBoardgameRepository boardgameRepository,
                                        IUserRepository userRepository,
-                                       NotificationService notificationService) {
+                                       NotificationService notificationService,
+                                       RealtimePublisher realtimePublisher) {
+        this.realtimePublisher = realtimePublisher;
         this.negotiationRepository = negotiationRepository;
         this.messageRepository = messageRepository;
         this.offerRepository = offerRepository;
@@ -195,11 +201,17 @@ public class OfferNegotiationUseCaseImpl implements OfferNegotiationUseCase {
 
     // ── regras ──────────────────────────────────────────────────────────────
 
-    /** Grava a mensagem e notifica a outra parte (agregando as não lidas) */
+    /** Grava a mensagem, notifica a outra parte (agregando as não lidas) e publica em tempo real para as duas */
     private OfferNegotiationMessage post(Context ctx, String text, BigDecimal price) {
         OfferNegotiationMessage saved = messageRepository.save(
                 OfferNegotiationMessage.send(ctx.negotiation().getId(), ctx.viewer(), text, price));
         notificationService.notifyOfferMessage(ctx.otherSide(), ctx.viewer(), ctx.negotiation().getId());
+        // Tempo real: comprador e vendedor (quem enviou também, por causa das outras abas)
+        NegotiationChannel channel = NegotiationChannel.of(ctx.negotiation().getId().toString());
+        Names names = new Names();
+        for (UUID party : List.of(ctx.viewer(), ctx.otherSide())) {
+            realtimePublisher.publishToUser(party, ChatMessage.of(channel, messageView(saved, party, names)));
+        }
         return saved;
     }
 

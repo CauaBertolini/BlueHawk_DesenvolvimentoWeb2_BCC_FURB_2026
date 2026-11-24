@@ -3,6 +3,8 @@ package com.example.blue_hawk.application.usecase.openmatch;
 import com.example.blue_hawk.application.dto.auth.CurrentUser;
 import com.example.blue_hawk.application.dto.openmatch.OpenMatchDtos.HostCommand;
 import com.example.blue_hawk.application.dto.openmatch.OpenMatchDtos.OpenMatchView;
+import com.example.blue_hawk.application.dto.realtime.RealtimeEvents.MatchChanged;
+import com.example.blue_hawk.application.port.RealtimePublisher;
 import com.example.blue_hawk.application.usecase.notification.NotificationService;
 import com.example.blue_hawk.domain.entity.boardgame.Boardgame;
 import com.example.blue_hawk.domain.entity.notification.Notification;
@@ -57,6 +59,8 @@ class OpenMatchUseCaseImplTest {
     private IUserRepository userRepository;
     @Mock
     private NotificationService notificationService;
+    @Mock
+    private RealtimePublisher realtimePublisher;
 
     private OpenMatchUseCaseImpl useCase;
     private Boardgame game;
@@ -65,7 +69,7 @@ class OpenMatchUseCaseImplTest {
     @BeforeEach
     void setUp() {
         useCase = new OpenMatchUseCaseImpl(openMatchRepository, userBoardGameRepository, boardgameRepository, userRepository,
-                notificationService);
+                notificationService, realtimePublisher);
         game = new Boardgame("Catan", "Classico", 1995, 4, 90);
         hostCopy = new UserBoardgame(HOST.toString(), game.getId().toString());
         when(userBoardGameRepository.findById(hostCopy.getId())).thenReturn(Optional.of(hostCopy));
@@ -304,5 +308,24 @@ class OpenMatchUseCaseImplTest {
         verify(notificationService).notifyMatch(GUEST, Notification.Type.MATCH_CANCELLED, HOST, match.getId());
         verify(notificationService, never()).notifyMatch(gaveUp.getUserId(), Notification.Type.MATCH_CANCELLED, HOST,
                 match.getId());
+        // Tempo real: host + todos com pedido (inclusive quem já desistiu)
+        verify(realtimePublisher).publishToUsers(java.util.Set.of(HOST, GUEST, gaveUp.getUserId()),
+                MatchChanged.of(match.getId().toString()));
+    }
+
+    @Test
+    void stateChangesPublishMatchChanged() {
+        OpenMatch match = openMatch(4);
+        OpenMatchRequest pending = OpenMatchRequest.create(match.getId(), GUEST, "oi");
+        when(openMatchRepository.findRequestById(pending.getId())).thenReturn(Optional.of(pending));
+        when(openMatchRepository.findRequests(match.getId())).thenReturn(java.util.List.of(pending));
+        MatchChanged event = MatchChanged.of(match.getId().toString());
+
+        useCase.decide(pending.getId().toString(), true, null, HOST_USER);
+        verify(realtimePublisher).publishToUsers(java.util.Set.of(HOST, GUEST), event);
+
+        when(openMatchRepository.findRequest(match.getId(), GUEST)).thenReturn(Optional.of(pending));
+        useCase.cancelMyRequest(match.getId().toString(), GUEST_USER);
+        verify(realtimePublisher, org.mockito.Mockito.times(2)).publishToUsers(java.util.Set.of(HOST, GUEST), event);
     }
 }

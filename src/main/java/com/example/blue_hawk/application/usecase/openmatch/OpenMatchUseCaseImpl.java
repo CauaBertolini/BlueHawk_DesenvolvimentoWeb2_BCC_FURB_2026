@@ -8,6 +8,8 @@ import com.example.blue_hawk.application.dto.openmatch.OpenMatchDtos.ListQuery;
 import com.example.blue_hawk.application.dto.openmatch.OpenMatchDtos.MyRequestView;
 import com.example.blue_hawk.application.dto.openmatch.OpenMatchDtos.OpenMatchView;
 import com.example.blue_hawk.application.dto.openmatch.OpenMatchDtos.RequestView;
+import com.example.blue_hawk.application.dto.realtime.RealtimeEvents.MatchChanged;
+import com.example.blue_hawk.application.port.RealtimePublisher;
 import com.example.blue_hawk.application.usecase.notification.NotificationService;
 import com.example.blue_hawk.domain.entity.boardgame.Boardgame;
 import com.example.blue_hawk.domain.entity.notification.Notification;
@@ -28,7 +30,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -45,12 +49,15 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
     private final IBoardgameRepository boardgameRepository;
     private final IUserRepository userRepository;
     private final NotificationService notificationService;
+    private final RealtimePublisher realtimePublisher;
 
     public OpenMatchUseCaseImpl(IOpenMatchRepository openMatchRepository,
                                 IUserBoardGameRepository userBoardGameRepository,
                                 IBoardgameRepository boardgameRepository,
                                 IUserRepository userRepository,
-                                NotificationService notificationService) {
+                                NotificationService notificationService,
+                                RealtimePublisher realtimePublisher) {
+        this.realtimePublisher = realtimePublisher;
         this.openMatchRepository = openMatchRepository;
         this.userBoardGameRepository = userBoardGameRepository;
         this.boardgameRepository = boardgameRepository;
@@ -134,6 +141,7 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
                     .filter(OpenMatchRequest::isActive)
                     .forEach(r -> notificationService.notifyMatch(r.getUserId(), Notification.Type.MATCH_CANCELLED,
                             user.userId(), match.getId()));
+            matchChanged(match);
         }
         return view(saved, user);
     }
@@ -168,6 +176,7 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
         openMatchRepository.saveRequest(request);
         notificationService.notifyMatch(match.getHostId(), Notification.Type.JOIN_REQUEST_RECEIVED, user.userId(),
                 match.getId());
+        matchChanged(match);
         return view(match, user);
     }
 
@@ -184,6 +193,7 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
         openMatchRepository.saveRequest(request);
         notificationService.notifyMatch(match.getHostId(), Notification.Type.JOIN_REQUEST_WITHDRAWN, user.userId(),
                 match.getId());
+        matchChanged(match);
         return view(match, user);
     }
 
@@ -219,7 +229,19 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
         notificationService.notifyMatch(request.getUserId(),
                 accept ? Notification.Type.JOIN_REQUEST_ACCEPTED : Notification.Type.JOIN_REQUEST_REJECTED,
                 user.userId(), match.getId());
+        matchChanged(match);
         return decided;
+    }
+
+    /**
+     * Tempo real ({@code match.changed}, depois do commit): o host e todos com pedido na partida (qualquer status)
+     * buscam a partida de novo.
+     */
+    private void matchChanged(OpenMatch match) {
+        Set<UUID> recipients = new LinkedHashSet<>();
+        recipients.add(match.getHostId());
+        openMatchRepository.findRequests(match.getId()).forEach(r -> recipients.add(r.getUserId()));
+        realtimePublisher.publishToUsers(recipients, MatchChanged.of(match.getId().toString()));
     }
 
     @Override

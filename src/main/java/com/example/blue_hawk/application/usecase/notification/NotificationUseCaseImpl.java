@@ -6,6 +6,8 @@ import com.example.blue_hawk.application.dto.notification.NotificationDtos.Board
 import com.example.blue_hawk.application.dto.notification.NotificationDtos.MatchView;
 import com.example.blue_hawk.application.dto.notification.NotificationDtos.NegotiationView;
 import com.example.blue_hawk.application.dto.notification.NotificationDtos.NotificationView;
+import com.example.blue_hawk.application.dto.realtime.RealtimeEvents.NotificationsChanged;
+import com.example.blue_hawk.application.port.RealtimePublisher;
 import com.example.blue_hawk.domain.entity.boardgame.Boardgame;
 import com.example.blue_hawk.domain.entity.notification.Notification;
 import com.example.blue_hawk.domain.entity.openmatch.OpenMatch;
@@ -39,6 +41,7 @@ public class NotificationUseCaseImpl implements NotificationUseCase {
     private final IBoardgameRepository boardgameRepository;
     private final IOfferNegotiationRepository negotiationRepository;
     private final IOfferRepository offerRepository;
+    private final RealtimePublisher realtimePublisher;
 
     public NotificationUseCaseImpl(INotificationRepository notificationRepository,
                                    IUserRepository userRepository,
@@ -46,7 +49,9 @@ public class NotificationUseCaseImpl implements NotificationUseCase {
                                    IUserBoardGameRepository userBoardGameRepository,
                                    IBoardgameRepository boardgameRepository,
                                    IOfferNegotiationRepository negotiationRepository,
-                                   IOfferRepository offerRepository) {
+                                   IOfferRepository offerRepository,
+                                   RealtimePublisher realtimePublisher) {
+        this.realtimePublisher = realtimePublisher;
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
         this.openMatchRepository = openMatchRepository;
@@ -83,6 +88,7 @@ public class NotificationUseCaseImpl implements NotificationUseCase {
         if (!notification.isRead()) {
             notification.markRead();
             notification = notificationRepository.save(notification);
+            realtimePublisher.publishToUser(userId, NotificationsChanged.INSTANCE);
         }
         return view(notification, new Lookups());
     }
@@ -90,7 +96,10 @@ public class NotificationUseCaseImpl implements NotificationUseCase {
     @Override
     @Transactional
     public int markAllRead(CurrentUser currentUser) {
-        return notificationRepository.markAllRead(requireLogin(currentUser), Instant.now());
+        UUID userId = requireLogin(currentUser);
+        int updated = notificationRepository.markAllRead(userId, Instant.now());
+        if (updated > 0) realtimePublisher.publishToUser(userId, NotificationsChanged.INSTANCE);
+        return updated;
     }
 
     // ── montagem das views ──────────────────────────────────────────────────

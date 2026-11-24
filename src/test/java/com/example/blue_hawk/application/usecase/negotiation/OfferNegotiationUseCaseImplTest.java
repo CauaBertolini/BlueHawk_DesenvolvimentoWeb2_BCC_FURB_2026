@@ -1,7 +1,10 @@
 package com.example.blue_hawk.application.usecase.negotiation;
 
+import com.example.blue_hawk.application.port.RealtimePublisher;
 import com.example.blue_hawk.application.dto.auth.CurrentUser;
 import com.example.blue_hawk.application.dto.negotiation.OfferNegotiationDtos.MessageView;
+import com.example.blue_hawk.application.dto.realtime.RealtimeEvents.ChatMessage;
+import com.example.blue_hawk.application.dto.realtime.RealtimeEvents.NegotiationChannel;
 import com.example.blue_hawk.application.dto.negotiation.OfferNegotiationDtos.NegotiationView;
 import com.example.blue_hawk.application.usecase.notification.NotificationService;
 import com.example.blue_hawk.domain.entity.boardgame.Boardgame;
@@ -51,6 +54,9 @@ import static org.mockito.Mockito.when;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class OfferNegotiationUseCaseImplTest {
 
+    @Mock
+    private RealtimePublisher realtimePublisher;
+
     private static final UUID SELLER = UUID.randomUUID();
     private static final UUID BUYER = UUID.randomUUID();
     private static final UUID OTHER_BUYER = UUID.randomUUID();
@@ -82,7 +88,7 @@ class OfferNegotiationUseCaseImplTest {
     @BeforeEach
     void setUp() {
         useCase = new OfferNegotiationUseCaseImpl(negotiationRepository, messageRepository, offerRepository,
-                userBoardGameRepository, boardgameRepository, userRepository, notificationService);
+                userBoardGameRepository, boardgameRepository, userRepository, notificationService, realtimePublisher);
         Boardgame game = new Boardgame("Catan", "Clássico", 1995, 4, 90);
         UserBoardgame copy = new UserBoardgame(UUID.randomUUID(), SELLER, game.getId());
         offer = new Offer(copy.getId().toString(), new BigDecimal("150.00"), OfferStatus.ACTIVE, null);
@@ -286,5 +292,25 @@ class OfferNegotiationUseCaseImplTest {
         negotiation.close(SELLER);
         assertEquals(HttpStatus.CONFLICT,
                 statusOf(() -> useCase.accept(id(), proposal.getId().toString(), as(SELLER))));
+    }
+
+    // ── tempo real ──────────────────────────────────────────────────────────
+
+    @Test
+    void messageIsPushedToBuyerAndSellerWithMinePerRecipient() {
+        useCase.send(id(), "Faço por 140", null, as(SELLER));
+
+        org.mockito.ArgumentCaptor<Object> toSeller = org.mockito.ArgumentCaptor.forClass(Object.class);
+        org.mockito.ArgumentCaptor<Object> toBuyer = org.mockito.ArgumentCaptor.forClass(Object.class);
+        verify(realtimePublisher).publishToUser(eq(SELLER), toSeller.capture());
+        verify(realtimePublisher).publishToUser(eq(BUYER), toBuyer.capture());
+        ChatMessage seller = (ChatMessage) toSeller.getValue();
+        ChatMessage buyer = (ChatMessage) toBuyer.getValue();
+        assertEquals("chat.message", buyer.type());
+        assertEquals(NegotiationChannel.of(id()), buyer.channel());
+        assertEquals(NegotiationChannel.of(id()), seller.channel());
+        assertTrue(((MessageView) seller.message()).mine());
+        assertFalse(((MessageView) buyer.message()).mine());
+        verify(realtimePublisher, never()).publishToUser(eq(STRANGER), any());
     }
 }

@@ -1,5 +1,6 @@
 package com.example.blue_hawk.application.usecase.notification;
 
+import com.example.blue_hawk.application.port.RealtimePublisher;
 import com.example.blue_hawk.application.dto.auth.CurrentUser;
 import com.example.blue_hawk.application.dto.notification.NotificationDtos.NotificationView;
 import com.example.blue_hawk.domain.entity.notification.Notification;
@@ -36,6 +37,9 @@ import static org.mockito.Mockito.when;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class NotificationUseCaseImplTest {
 
+    @Mock
+    private RealtimePublisher realtimePublisher;
+
     private static final UUID ME = UUID.randomUUID();
     private static final UUID HOST = UUID.randomUUID();
 
@@ -59,7 +63,8 @@ class NotificationUseCaseImplTest {
     @BeforeEach
     void setUp() {
         useCase = new NotificationUseCaseImpl(notificationRepository, userRepository, openMatchRepository,
-                userBoardGameRepository, boardgameRepository, negotiationRepository, offerRepository);
+                userBoardGameRepository, boardgameRepository, negotiationRepository, offerRepository,
+                realtimePublisher);
         when(userRepository.findById(any())).thenReturn(Optional.empty());
         when(userBoardGameRepository.findById(any())).thenReturn(Optional.empty());
     }

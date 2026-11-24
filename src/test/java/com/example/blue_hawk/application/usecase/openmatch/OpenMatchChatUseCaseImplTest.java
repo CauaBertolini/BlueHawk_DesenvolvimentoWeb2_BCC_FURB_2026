@@ -1,8 +1,11 @@
 package com.example.blue_hawk.application.usecase.openmatch;
 
+import com.example.blue_hawk.application.port.RealtimePublisher;
 import com.example.blue_hawk.application.dto.auth.CurrentUser;
 import com.example.blue_hawk.application.dto.openmatch.OpenMatchChatDtos.ChatsView;
 import com.example.blue_hawk.application.dto.openmatch.OpenMatchChatDtos.MessageView;
+import com.example.blue_hawk.application.dto.realtime.RealtimeEvents.ChatMessage;
+import com.example.blue_hawk.application.dto.realtime.RealtimeEvents.MatchChannel;
 import com.example.blue_hawk.application.usecase.notification.NotificationService;
 import com.example.blue_hawk.domain.entity.notification.Notification;
 import com.example.blue_hawk.domain.entity.openmatch.OpenMatch;
@@ -44,6 +47,9 @@ import static org.mockito.Mockito.when;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class OpenMatchChatUseCaseImplTest {
 
+    @Mock
+    private RealtimePublisher realtimePublisher;
+
     private static final UUID HOST = UUID.randomUUID();
     private static final UUID PLAYER = UUID.randomUUID();
     private static final UUID PENDING = UUID.randomUUID();
@@ -73,7 +79,7 @@ class OpenMatchChatUseCaseImplTest {
     @BeforeEach
     void setUp() {
         useCase = new OpenMatchChatUseCaseImpl(openMatchRepository, messageRepository, notificationRepository,
-                notificationService, userRepository);
+                notificationService, userRepository, realtimePublisher);
         match = OpenMatch.host(HOST, UUID.randomUUID(), "Blumenau", Instant.now().plus(1, ChronoUnit.DAYS), 4, null);
         accepted = OpenMatchRequest.create(match.getId(), PLAYER, "oi");
         accepted.accept(null);
@@ -318,5 +324,44 @@ class OpenMatchChatUseCaseImplTest {
 
         assertEquals(List.of(HOST.toString(), PLAYER.toString()),
                 view.threads().stream().map(t -> t.userId()).toList());
+    }
+
+    // ── tempo real ──────────────────────────────────────────────────────────
+
+    /** O evento chat.message publicado para {@code userId} */
+    private ChatMessage pushedTo(UUID userId) {
+        org.mockito.ArgumentCaptor<Object> event = org.mockito.ArgumentCaptor.forClass(Object.class);
+        verify(realtimePublisher).publishToUser(eq(userId), event.capture());
+        return (ChatMessage) event.getValue();
+    }
+
+    @Test
+    void tableMessageIsPushedToTheWholeTableWithMinePerRecipient() {
+        MessageView sent = useCase.send(id(), "Chego às 20h", null, as(PLAYER));
+
+        ChatMessage toHost = pushedTo(HOST);
+        ChatMessage toSender = pushedTo(PLAYER);
+        assertEquals("chat.message", toHost.type());
+        assertEquals(MatchChannel.of(id(), null), toHost.channel());
+        assertEquals(MatchChannel.of(id(), null), toSender.channel());
+        assertFalse(((MessageView) toHost.message()).mine());
+        assertTrue(((MessageView) toSender.message()).mine(), "outras abas de quem enviou");
+        assertEquals(sent.id(), ((MessageView) toHost.message()).id());
+        verify(realtimePublisher, never()).publishToUser(eq(PENDING), any());
+    }
+
+    @Test
+    void directMessageIsPushedToBothWithTheOtherPersonAsWithUserId() {
+        secondPlayer();
+
+        useCase.send(id(), "Levo o dado", PLAYER2.toString(), as(PLAYER));
+
+        ChatMessage toSender = pushedTo(PLAYER);
+        ChatMessage toRecipient = pushedTo(PLAYER2);
+        assertEquals(MatchChannel.of(id(), PLAYER2.toString()), toSender.channel());
+        assertEquals(MatchChannel.of(id(), PLAYER.toString()), toRecipient.channel());
+        assertTrue(((MessageView) toSender.message()).mine());
+        assertFalse(((MessageView) toRecipient.message()).mine());
+        verify(realtimePublisher, never()).publishToUser(eq(HOST), any());
     }
 }
