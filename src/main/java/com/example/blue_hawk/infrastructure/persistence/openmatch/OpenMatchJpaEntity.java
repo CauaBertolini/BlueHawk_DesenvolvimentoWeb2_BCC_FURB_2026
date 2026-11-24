@@ -56,4 +56,8 @@ public class OpenMatchJpaEntity {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    /** Motivo do cancelamento (só em CANCELLED) */
+    @Column(name = "cancel_reason", length = 300)
+    private String cancelReason;
 }

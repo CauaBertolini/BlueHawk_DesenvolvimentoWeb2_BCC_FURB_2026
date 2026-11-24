@@ -24,6 +24,12 @@ public interface IOpenMatchRepository {
     /** Partidas futuras que o usuário hospeda ou em que tem pedido ativo (pendente ou aceito) */
     List<OpenMatch> findUpcomingInvolving(UUID userId, Instant from);
 
+    /**
+     * Partidas marcadas a partir de {@code from} (inclui canceladas) que o usuário hospeda ou em que tem pedido,
+     * em qualquer status. Usado pela caixa de conversas.
+     */
+    List<OpenMatch> findInvolvingSince(UUID userId, Instant from);
+
     OpenMatchRequest saveRequest(OpenMatchRequest request);
 
     Optional<OpenMatchRequest> findRequestById(UUID requestId);

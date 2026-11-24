@@ -1,5 +1,7 @@
 package com.example.blue_hawk.infrastructure.persistence.offer;
 
+import com.example.blue_hawk.domain.entity.offer.DeliveryMethod;
+import com.example.blue_hawk.domain.entity.offer.OfferCondition;
 import com.example.blue_hawk.domain.entity.offer.OfferStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -44,6 +46,16 @@ public class OfferJpaEntity {
 
     @Column(name = "description", length = 500)
     private String description;
+
+    /** Estado de conservação; null em anúncios antigos */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "condition", length = 30)
+    private OfferCondition condition;
+
+    /** Forma de entrega; null em anúncios antigos */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "delivery_method", length = 20)
+    private DeliveryMethod deliveryMethod;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

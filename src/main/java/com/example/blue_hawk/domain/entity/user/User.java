@@ -1,5 +1,6 @@
 package com.example.blue_hawk.domain.entity.user;
 
+import java.time.Instant;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -11,6 +12,8 @@ public class User {
     // Guarda SEMPRE o hash da senha, nunca a senha em texto puro.
     private String passwordHash;
     private UserRole role;
+    // Preenchido pelo banco (DEFAULT CURRENT_TIMESTAMP); null em um usuário ainda não salvo.
+    private Instant createdAt;
 
     public User(String name, String email, String passwordHash) {
         this.id = generateUUID();
@@ -74,5 +77,14 @@ public class User {
 
     public void setRole(UserRole role) {
         this.role = role;
+    }
+
+    /** Quando a conta foi criada (o "membro desde" do perfil) */
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
     }
 }

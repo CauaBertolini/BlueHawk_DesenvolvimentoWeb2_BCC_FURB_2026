@@ -40,7 +40,12 @@ public class OpenMatchController {
 
     public record OpenMatchResponse(String id, String status, String city, String scheduledAt, int maxPlayers,
                                     int players, int seatsLeft, Integer pendingRequests, String notes,
-                                    Object host, GameResponse game, boolean isHost, Object myRequest) {
+                                    Object host, GameResponse game, boolean isHost, Object myRequest,
+                                    String cancelReason) {
+    }
+
+    /** Motivo do cancelamento, obrigatório (10 a 300 caracteres) */
+    public record CancelRequest(String reason) {
     }
 
     private final OpenMatchUseCase openMatchUseCase;
@@ -78,10 +83,12 @@ public class OpenMatchController {
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(view));
     }
 
-    /** O host cancela a partida */
+    /** O host cancela a partida. Corpo {@code { "reason": "..." }} obrigatório: o motivo vai para os jogadores. */
     @DeleteMapping("/open-matches/{id}")
-    public OpenMatchResponse cancel(@PathVariable String id, CurrentUser currentUser) {
-        return toResponse(openMatchUseCase.cancel(id, currentUser));
+    public OpenMatchResponse cancel(@PathVariable String id,
+                                    @RequestBody(required = false) CancelRequest request,
+                                    CurrentUser currentUser) {
+        return toResponse(openMatchUseCase.cancel(id, request != null ? request.reason() : null, currentUser));
     }
 
     @PostMapping("/open-matches/{id}/requests")
@@ -125,6 +132,7 @@ public class OpenMatchController {
                         : null,
                 v.game().playerNumber(), v.game().playTime());
         return new OpenMatchResponse(v.id(), v.status(), v.city(), v.scheduledAt(), v.maxPlayers(), v.players(),
-                v.seatsLeft(), v.pendingRequests(), v.notes(), v.host(), game, v.isHost(), v.myRequest());
+                v.seatsLeft(), v.pendingRequests(), v.notes(), v.host(), game, v.isHost(), v.myRequest(),
+                v.cancelReason());
     }
 }

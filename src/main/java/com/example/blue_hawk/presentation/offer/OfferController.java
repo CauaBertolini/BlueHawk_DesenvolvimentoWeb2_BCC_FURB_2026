@@ -67,7 +67,9 @@ public class OfferController {
                 request.userBoardgameId(),
                 request.price(),
                 request.status(),
-                request.description()
+                request.description(),
+                request.condition(),
+                request.deliveryMethod()
         );
         CreateOfferOutput output = createOfferUseCase.handle(command);
         return ResponseEntity.status(HttpStatus.CREATED).body(toResponse(output));
@@ -93,7 +95,7 @@ public class OfferController {
 
         List<OfferResponse> response = output.stream()
                 .map(o -> new OfferResponse(o.id(), o.userBoardgameId(), o.price(),
-                        o.status(), o.description(), o.createdAt(), o.updatedAt()))
+                        o.status(), o.description(), o.condition(), o.deliveryMethod(), o.createdAt(), o.updatedAt()))
                 .toList();
 
         return ResponseEntity.ok(response);
@@ -109,7 +111,9 @@ public class OfferController {
                 request.userBoardgameId(),
                 request.price(),
                 request.status(),
-                request.description()
+                request.description(),
+                request.condition(),
+                request.deliveryMethod()
         );
         UpdateOfferOutput output = updateOfferUseCase.handle(command);
         return ResponseEntity.ok(toResponse(output));
@@ -124,7 +128,9 @@ public class OfferController {
                 uuid,
                 request.price(),
                 request.status(),
-                request.description()
+                request.description(),
+                request.condition(),
+                request.deliveryMethod()
         );
         PatchOfferOutput output = patchOfferUseCase.handle(command);
         return ResponseEntity.ok(toResponse(output));
@@ -140,21 +146,21 @@ public class OfferController {
 
     private OfferResponse toResponse(CreateOfferOutput o) {
         return new OfferResponse(o.id(), o.userBoardgameId(), o.price(),
-                o.status(), o.description(), o.createdAt(), o.updatedAt());
+                o.status(), o.description(), o.condition(), o.deliveryMethod(), o.createdAt(), o.updatedAt());
     }
 
     private OfferResponse toResponse(GetOfferOutput o) {
         return new OfferResponse(o.id(), o.userBoardgameId(), o.price(),
-                o.status(), o.description(), o.createdAt(), o.updatedAt());
+                o.status(), o.description(), o.condition(), o.deliveryMethod(), o.createdAt(), o.updatedAt());
     }
 
     private OfferResponse toResponse(UpdateOfferOutput o) {
         return new OfferResponse(o.id(), o.userBoardgameId(), o.price(),
-                o.status(), o.description(), o.createdAt(), o.updatedAt());
+                o.status(), o.description(), o.condition(), o.deliveryMethod(), o.createdAt(), o.updatedAt());
     }
 
     private OfferResponse toResponse(PatchOfferOutput o) {
         return new OfferResponse(o.id(), o.userBoardgameId(), o.price(),
-                o.status(), o.description(), o.createdAt(), o.updatedAt());
+                o.status(), o.description(), o.condition(), o.deliveryMethod(), o.createdAt(), o.updatedAt());
     }
 }

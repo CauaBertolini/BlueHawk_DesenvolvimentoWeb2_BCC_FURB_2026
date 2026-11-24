@@ -34,6 +34,8 @@ public class ListOfferUseCaseImpl implements ListOfferUseCase {
                         o.getPrice(),
                         o.getStatus().name(),
                         o.getDescription(),
+                        OfferFields.nameOf(o.getCondition()),
+                        OfferFields.nameOf(o.getDeliveryMethod()),
                         o.getCreatedAt(),
                         o.getUpdatedAt()))
                 .toList();

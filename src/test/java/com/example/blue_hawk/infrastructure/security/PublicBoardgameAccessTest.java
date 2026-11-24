@@ -1,5 +1,6 @@
 package com.example.blue_hawk.infrastructure.security;
 
+import com.example.blue_hawk.application.dto.boardgame.GetBoardgameOutput;
 import com.example.blue_hawk.application.dto.boardgame.ListBoardgameOutput;
 import com.example.blue_hawk.application.usecase.boardgame.BoardgameCoverUseCase;
 import com.example.blue_hawk.application.usecase.boardgame.LikeBoardgameUseCase;
@@ -74,8 +75,20 @@ class PublicBoardgameAccessTest {
     }
 
     @Test
-    void shouldKeepBoardgameDetailProtected() throws Exception {
+    void shouldOpenBoardgameDetailWithoutToken() throws Exception {
+        when(getBoardgameUseCase.handle(any())).thenReturn(new GetBoardgameOutput(
+                "1", "Marés de Ferro", "Estratégia naval", 2024, 4, 90, "APPROVED", null, null, null, "Estratégia", "waves-1", null, 3, false));
+
         mockMvc.perform(get("/boardgames/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Marés de Ferro"));
+    }
+
+    @Test
+    void shouldKeepBoardgameEditingProtected() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/boardgames/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Outro\"}"))
                 .andExpect(status().isUnauthorized());
     }
 

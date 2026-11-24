@@ -40,8 +40,10 @@ public class ListBoardgameUseCaseImpl implements ListBoardgameUseCase {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only admins can list games pending review");
         }
 
-        List<Boardgame> games = boardgameRepository
-                .findAll(name, status, mostLikedFirst, page, size)
+        String category = query.category() != null && !query.category().isBlank() ? query.category() : null;
+        List<Boardgame> games = (category == null
+                ? boardgameRepository.findAll(name, status, mostLikedFirst, page, size)
+                : boardgameRepository.findAllInCategory(name, category, status, mostLikedFirst, page, size))
                 .getContent();
 
         // Uma consulta só para marcar o coração de toda a página

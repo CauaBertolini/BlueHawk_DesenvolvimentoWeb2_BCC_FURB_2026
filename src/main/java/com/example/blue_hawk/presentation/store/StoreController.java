@@ -5,6 +5,7 @@ import com.example.blue_hawk.application.usecase.store.StoreUseCase.StoreOffer;
 import com.example.blue_hawk.application.usecase.store.StoreUseCase;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -24,8 +25,10 @@ public class StoreController {
                                     Integer releaseYear) {
     }
 
-    public record StoreOfferResponse(String id, BigDecimal price, String description, String createdAt,
-                                     String sellerName, boolean isMine, StoreGameResponse game) {
+    public record StoreOfferResponse(String id, BigDecimal price, String description, String condition,
+                                     String deliveryMethod, String createdAt,
+                                     String sellerId, String sellerName, boolean isMine,
+                                     StoreGameResponse game) {
     }
 
     private final StoreUseCase storeUseCase;
@@ -51,12 +54,22 @@ public class StoreController {
                 .toList();
     }
 
+    /** Página do anúncio. 404 se não existe ou não está mais à venda. */
+    @GetMapping("/offers/{id}")
+    public StoreOfferResponse offer(@PathVariable String id, CurrentUser currentUser) {
+        return storeUseCase.get(id, currentUser)
+                .map(StoreController::toResponse)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Offer not available"));
+    }
+
     private static StoreOfferResponse toResponse(StoreOffer o) {
         var g = o.game();
         String coverUrl = g.coverImageVersion() != null
                 ? "/boardgames/" + g.id() + "/cover?v=" + g.coverImageVersion()
                 : null;
-        return new StoreOfferResponse(o.id(), o.price(), o.description(), o.createdAt(), o.sellerName(), o.isMine(),
+        return new StoreOfferResponse(o.id(), o.price(), o.description(), o.condition(), o.deliveryMethod(),
+                o.createdAt(), o.sellerId(), o.sellerName(),
+                o.isMine(),
                 new StoreGameResponse(g.id(), g.name(), g.description(), g.category(), g.coverPreset(), coverUrl,
                         g.playerNumber(), g.playTime(), g.releaseYear()));
     }

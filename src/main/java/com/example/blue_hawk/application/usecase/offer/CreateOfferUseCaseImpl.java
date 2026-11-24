@@ -3,7 +3,9 @@ package com.example.blue_hawk.application.usecase.offer;
 import com.example.blue_hawk.application.dto.offer.CreateOfferCommand;
 import com.example.blue_hawk.application.dto.offer.CreateOfferOutput;
 import com.example.blue_hawk.domain.entity.boardgame.Boardgame;
+import com.example.blue_hawk.domain.entity.offer.DeliveryMethod;
 import com.example.blue_hawk.domain.entity.offer.Offer;
+import com.example.blue_hawk.domain.entity.offer.OfferCondition;
 import com.example.blue_hawk.domain.entity.offer.OfferStatus;
 import com.example.blue_hawk.domain.entity.userboardgame.UserBoardgame;
 import com.example.blue_hawk.domain.repository.IBoardgameRepository;
@@ -35,6 +37,11 @@ public class CreateOfferUseCaseImpl implements CreateOfferUseCase {
         if (command.userBoardgameId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "userBoardgameId is required");
         }
+        // Detalhes obrigatórios do anúncio: estado de conservação, forma de entrega e descrição (400)
+        OfferCondition condition = OfferFields.parseCondition(command.condition());
+        DeliveryMethod deliveryMethod = OfferFields.parseDeliveryMethod(command.deliveryMethod());
+        String description = OfferFields.requireDescription(command.description());
+
         UserBoardgame copy = userBoardGameRepository.findById(UUID.fromString(command.userBoardgameId()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "UserBoardgame not found"));
         Boardgame boardgame = boardgameRepository.findById(copy.getBoardgameId())
@@ -53,8 +60,10 @@ public class CreateOfferUseCaseImpl implements CreateOfferUseCase {
                 command.userBoardgameId(),
                 command.price(),
                 status,
-                command.description()
+                description
         );
+        offer.setCondition(condition);
+        offer.setDeliveryMethod(deliveryMethod);
 
         Offer saved = offerRepository.save(offer);
 
@@ -64,6 +73,8 @@ public class CreateOfferUseCaseImpl implements CreateOfferUseCase {
                 saved.getPrice(),
                 saved.getStatus().name(),
                 saved.getDescription(),
+                OfferFields.nameOf(saved.getCondition()),
+                OfferFields.nameOf(saved.getDeliveryMethod()),
                 saved.getCreatedAt(),
                 saved.getUpdatedAt()
         );

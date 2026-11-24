@@ -32,7 +32,7 @@ public class OpenMatchRepositoryImpl implements IOpenMatchRepository {
     public OpenMatch save(OpenMatch m) {
         return toDomain(matchJpa.save(new OpenMatchJpaEntity(m.getId(), m.getHostId(), m.getUserBoardgameId(),
                 m.getCity(), utc(m.getScheduledAt()), m.getMaxPlayers(), m.getNotes(), m.getStatus(),
-                utc(m.getCreatedAt()))));
+                utc(m.getCreatedAt()), m.getCancelReason())));
     }
 
     @Override
@@ -53,6 +53,11 @@ public class OpenMatchRepositoryImpl implements IOpenMatchRepository {
     @Override
     public List<OpenMatch> findUpcomingInvolving(UUID userId, Instant from) {
         return matchJpa.findUpcomingInvolving(userId, utc(from)).stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    public List<OpenMatch> findInvolvingSince(UUID userId, Instant from) {
+        return matchJpa.findInvolvingSince(userId, utc(from)).stream().map(this::toDomain).toList();
     }
 
     @Override
@@ -97,7 +102,7 @@ public class OpenMatchRepositoryImpl implements IOpenMatchRepository {
 
     private OpenMatch toDomain(OpenMatchJpaEntity e) {
         return new OpenMatch(e.getId(), e.getHostId(), e.getUserBoardgameId(), e.getCity(), instant(e.getScheduledAt()),
-                e.getMaxPlayers(), e.getNotes(), e.getStatus(), instant(e.getCreatedAt()));
+                e.getMaxPlayers(), e.getNotes(), e.getStatus(), instant(e.getCreatedAt()), e.getCancelReason());
     }
 
     private OpenMatchRequest toDomain(OpenMatchRequestJpaEntity e) {

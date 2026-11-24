@@ -21,9 +21,17 @@ public class OpenMatch {
     private String notes;
     private Status status;
     private Instant createdAt;
+    /** Motivo informado pelo host ao cancelar (null enquanto aberta) */
+    private String cancelReason;
 
     public OpenMatch(UUID id, UUID hostId, UUID userBoardgameId, String city, Instant scheduledAt, int maxPlayers,
                      String notes, Status status, Instant createdAt) {
+        this(id, hostId, userBoardgameId, city, scheduledAt, maxPlayers, notes, status, createdAt, null);
+    }
+
+    public OpenMatch(UUID id, UUID hostId, UUID userBoardgameId, String city, Instant scheduledAt, int maxPlayers,
+                     String notes, Status status, Instant createdAt, String cancelReason) {
+        this.cancelReason = cancelReason;
         this.id = id;
         this.hostId = hostId;
         this.userBoardgameId = userBoardgameId;
@@ -51,7 +59,17 @@ public class OpenMatch {
     }
 
     public void cancel() {
+        cancel(null);
+    }
+
+    /** Cancela guardando o motivo informado pelo host */
+    public void cancel(String reason) {
         this.status = Status.CANCELLED;
+        this.cancelReason = reason;
+    }
+
+    public String getCancelReason() {
+        return cancelReason;
     }
 
     public UUID getId() {

@@ -29,11 +29,13 @@ public final class OpenMatchDtos {
     }
 
     /**
-     * {@code players}: host + aceitos. {@code pendingRequests} só vem para o host.
+     * {@code players}: host + aceitos. {@code pendingRequests} só vem para o host. {@code cancelReason}: motivo
+     * informado pelo host (null se não cancelada).
      */
     public record OpenMatchView(String id, String status, String city, String scheduledAt, int maxPlayers,
                                 int players, int seatsLeft, Integer pendingRequests, String notes,
-                                HostView host, GameView game, boolean isHost, MyRequestView myRequest) {
+                                HostView host, GameView game, boolean isHost, MyRequestView myRequest,
+                                String cancelReason) {
     }
 
     /** Pedido visto pelo host */
