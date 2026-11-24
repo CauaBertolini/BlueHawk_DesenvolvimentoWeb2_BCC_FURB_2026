@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.dto.offer;
 
+import com.example.blue_hawk.application.dto.auth.CurrentUser;
+
 import java.math.BigDecimal;
 
 /**
@@ -13,5 +15,6 @@ public record CreateOfferCommand(
         String status,
         String description,
         String condition,
-        String deliveryMethod
+        String deliveryMethod,
+        CurrentUser currentUser
 ) {}

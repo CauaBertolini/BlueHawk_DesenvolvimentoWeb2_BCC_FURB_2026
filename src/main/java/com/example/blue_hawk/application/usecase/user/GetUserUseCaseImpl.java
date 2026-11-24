@@ -20,8 +20,11 @@ public class GetUserUseCaseImpl implements GetUserUseCase {
 
     @Override
     public UserOutput handle(GetUserQuery query) {
-        return userRepository.findById(UUID.fromString(query.id()))
-                .map(UserOutput::from)
+        UUID id = UUID.fromString(query.id());
+        // E-mail e papel só para o próprio usuário ou um ADMIN; os demais veem o nome
+        boolean full = query.currentUser() != null && query.currentUser().isSelfOrAdmin(id);
+        return userRepository.findById(id)
+                .map(user -> full ? UserOutput.from(user) : UserOutput.publicView(user))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     }
 }

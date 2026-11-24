@@ -1,5 +1,8 @@
 package com.example.blue_hawk.application.usecase.matchParticipant;
 
+import com.example.blue_hawk.domain.repository.IUserBoardGameRepository;
+import com.example.blue_hawk.domain.repository.IMatchRepository;
+
 import com.example.blue_hawk.application.dto.matchParticipant.UpdateMatchParticipantCommand;
 import com.example.blue_hawk.application.dto.matchParticipant.UpdateMatchParticipantOutput;
 import com.example.blue_hawk.domain.entity.matchparticipant.MatchParticipant;
@@ -13,7 +16,12 @@ public class UpdateMatchParticipantUseCaseImpl implements UpdateMatchParticipant
 
     private final IMatchParticipantRepository matchParticipantRepository;
 
-    public UpdateMatchParticipantUseCaseImpl(IMatchParticipantRepository matchParticipantRepository) {
+        private final IMatchRepository matchRepository;
+    private final IUserBoardGameRepository userBoardGameRepository;
+
+    public UpdateMatchParticipantUseCaseImpl(IMatchParticipantRepository matchParticipantRepository, IMatchRepository matchRepository, IUserBoardGameRepository userBoardGameRepository) {
+        this.matchRepository = matchRepository;
+        this.userBoardGameRepository = userBoardGameRepository;
         this.matchParticipantRepository = matchParticipantRepository;
     }
 
@@ -22,9 +30,13 @@ public class UpdateMatchParticipantUseCaseImpl implements UpdateMatchParticipant
         MatchParticipant matchParticipant = matchParticipantRepository
                 .findById(UUID.fromString(command.id()))
                 .orElseThrow(() -> new RuntimeException("MatchParticipant not found with id: " + command.id()));
+        MatchParticipantAccess.requireCanManage(matchParticipant, command.currentUser(), matchRepository,
+                userBoardGameRepository);
+        UUID playerId = MatchParticipantAccess.requireJoinAsSelf(command.matchId(), command.userId(),
+                command.currentUser());
 
         matchParticipant.setMatchId(UUID.fromString(command.matchId()));
-        matchParticipant.setUserId(UUID.fromString(command.userId()));
+        matchParticipant.setUserId(playerId);
 
         MatchParticipant updated = matchParticipantRepository.save(matchParticipant);
 

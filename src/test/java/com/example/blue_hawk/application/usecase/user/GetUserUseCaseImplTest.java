@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.usecase.user;
 
+import com.example.blue_hawk.application.dto.auth.CurrentUser;
+
 import com.example.blue_hawk.application.dto.user.GetUserQuery;
 import com.example.blue_hawk.application.dto.user.UserOutput;
 import com.example.blue_hawk.domain.entity.user.User;
@@ -36,9 +38,22 @@ class GetUserUseCaseImplTest {
         User user = new User(userId, "Alice", "alice@example.com", "hash", UserRole.ADMIN);
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 
-        UserOutput output = useCase.handle(new GetUserQuery(userId.toString()));
+        UserOutput output = useCase.handle(new GetUserQuery(userId.toString(), new CurrentUser(userId, false)));
 
         assertEquals(new UserOutput(userId.toString(), "Alice", "alice@example.com", "ADMIN"), output);
+    }
+
+    @Test
+    void othersSeeOnlyTheNameButAdminSeesEverything() {
+        User user = new User(userId, "Alice", "alice@example.com", "hash", UserRole.USER);
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        String id = userId.toString();
+
+        assertEquals(new UserOutput(id, "Alice", null, null),
+                useCase.handle(new GetUserQuery(id, new CurrentUser(UUID.randomUUID(), false))));
+        assertEquals(new UserOutput(id, "Alice", null, null), useCase.handle(new GetUserQuery(id, null)));
+        assertEquals(new UserOutput(id, "Alice", "alice@example.com", "USER"),
+                useCase.handle(new GetUserQuery(id, new CurrentUser(UUID.randomUUID(), true))));
     }
 
     @Test
@@ -46,7 +61,7 @@ class GetUserUseCaseImplTest {
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
-                () -> useCase.handle(new GetUserQuery(userId.toString())));
+                () -> useCase.handle(new GetUserQuery(userId.toString(), new CurrentUser(userId, false))));
 
         assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
     }

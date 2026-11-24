@@ -1,5 +1,8 @@
 package com.example.blue_hawk.application.usecase.offer;
 
+import com.example.blue_hawk.application.dto.auth.CurrentUser;
+import com.example.blue_hawk.domain.repository.IUserBoardGameRepository;
+
 import com.example.blue_hawk.application.dto.offer.GetOfferQuery;
 import com.example.blue_hawk.application.dto.offer.ListOfferQuery;
 import com.example.blue_hawk.application.dto.offer.PatchOfferCommand;
@@ -42,8 +45,13 @@ import static org.mockito.Mockito.when;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class EditOfferUseCaseImplTest {
 
+    /** ADMIN edita qualquer anúncio: as regras de dono ficam no OwnershipAccessTest */
+    private static final CurrentUser ADMIN = new CurrentUser(UUID.randomUUID(), true);
+
     @Mock
     private IOfferRepository offerRepository;
+    @Mock
+    private IUserBoardGameRepository userBoardGameRepository;
 
     private Offer offer;
     private Offer legacy;
@@ -64,19 +72,19 @@ class EditOfferUseCaseImplTest {
 
     private PatchOfferCommand patch(Offer target, String condition, String deliveryMethod) {
         return new PatchOfferCommand(target.getId().toString(), new BigDecimal("120.00"), null, null,
-                condition, deliveryMethod);
+                condition, deliveryMethod, ADMIN);
     }
 
     private UpdateOfferCommand update(Offer target, String condition, String deliveryMethod) {
         return new UpdateOfferCommand(target.getId().toString(), target.getUserBoardgameId().toString(),
-                new BigDecimal("120.00"), "ACTIVE", "Curta", condition, deliveryMethod);
+                new BigDecimal("120.00"), "ACTIVE", "Curta", condition, deliveryMethod, ADMIN);
     }
 
     // ── PATCH ──────────────────────────────────────────────────────────────
 
     @Test
     void patchKeepsConditionAndDeliveryWhenAbsent() {
-        PatchOfferOutput output = new PatchOfferUseCaseImpl(offerRepository).handle(patch(offer, null, null));
+        PatchOfferOutput output = new PatchOfferUseCaseImpl(offerRepository, userBoardGameRepository).handle(patch(offer, null, null));
 
         assertEquals(new BigDecimal("120.00"), output.price());
         assertEquals("BOM", output.condition());
@@ -85,7 +93,7 @@ class EditOfferUseCaseImplTest {
 
     @Test
     void patchReplacesConditionAndDeliveryWhenPresent() {
-        PatchOfferOutput output = new PatchOfferUseCaseImpl(offerRepository)
+        PatchOfferOutput output = new PatchOfferUseCaseImpl(offerRepository, userBoardGameRepository)
                 .handle(patch(offer, "novo_lacrado", "retirada"));
 
         assertEquals("NOVO_LACRADO", output.condition());
@@ -95,7 +103,7 @@ class EditOfferUseCaseImplTest {
 
     @Test
     void patchValidatesLikeCreate() {
-        PatchOfferUseCaseImpl useCase = new PatchOfferUseCaseImpl(offerRepository);
+        PatchOfferUseCaseImpl useCase = new PatchOfferUseCaseImpl(offerRepository, userBoardGameRepository);
 
         ResponseStatusException badCondition = assertThrows(ResponseStatusException.class,
                 () -> useCase.handle(patch(offer, "QUEBRADO", null)));
@@ -110,7 +118,7 @@ class EditOfferUseCaseImplTest {
 
     @Test
     void updateKeepsValuesWhenAbsentAndDoesNotRequireDescriptionRules() {
-        UpdateOfferOutput output = new UpdateOfferUseCaseImpl(offerRepository).handle(update(legacy, null, null));
+        UpdateOfferOutput output = new UpdateOfferUseCaseImpl(offerRepository, userBoardGameRepository).handle(update(legacy, null, null));
 
         assertNull(output.condition());
         assertNull(output.deliveryMethod());
@@ -119,7 +127,7 @@ class EditOfferUseCaseImplTest {
 
     @Test
     void updateReplacesValuesWhenPresent() {
-        UpdateOfferOutput output = new UpdateOfferUseCaseImpl(offerRepository)
+        UpdateOfferOutput output = new UpdateOfferUseCaseImpl(offerRepository, userBoardGameRepository)
                 .handle(update(offer, "COM_MARCAS_DE_USO", "Envio"));
 
         assertEquals("COM_MARCAS_DE_USO", output.condition());
@@ -129,7 +137,7 @@ class EditOfferUseCaseImplTest {
     @Test
     void updateRejectsInvalidDeliveryMethod() {
         ResponseStatusException e = assertThrows(ResponseStatusException.class,
-                () -> new UpdateOfferUseCaseImpl(offerRepository).handle(update(offer, null, "DRONE")));
+                () -> new UpdateOfferUseCaseImpl(offerRepository, userBoardGameRepository).handle(update(offer, null, "DRONE")));
         assertEquals(HttpStatus.BAD_REQUEST, e.getStatusCode());
         verify(offerRepository, never()).save(any());
     }

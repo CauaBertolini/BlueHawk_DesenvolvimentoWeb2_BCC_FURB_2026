@@ -94,20 +94,22 @@ public class UserBoardgameController {
     @PutMapping("/{id}")
     public ResponseEntity<UserBoardgameResponse> update(
             @PathVariable String id,
-            @RequestBody UserBoardgameRequest request) {
+            @RequestBody UserBoardgameRequest request,
+            CurrentUser currentUser) {
 
         UpdateUserBoardgameCommand command = new UpdateUserBoardgameCommand(
                 id,
                 request.userId(),
-                request.boardgameId()
+                request.boardgameId(),
+                currentUser
         );
         UpdateUserBoardgameOutput output = updateUserBoardgameUseCase.handle(command);
         return ResponseEntity.ok(new UserBoardgameResponse(output.id(), output.userId(), output.boardgameId()));
     }
 
     @DeleteMapping("/{id}")
-    public ApiResponse<Void> delete(@PathVariable String id) {
-        DeleteUserBoardgameCommand command = new DeleteUserBoardgameCommand(id);
+    public ApiResponse<Void> delete(@PathVariable String id, CurrentUser currentUser) {
+        DeleteUserBoardgameCommand command = new DeleteUserBoardgameCommand(id, currentUser);
         deleteUserBoardgameUseCase.handle(command);
         return ApiResponse.empty();
     }

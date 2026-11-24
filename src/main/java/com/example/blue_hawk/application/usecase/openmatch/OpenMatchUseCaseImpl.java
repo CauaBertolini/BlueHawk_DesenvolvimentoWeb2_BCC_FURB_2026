@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.usecase.openmatch;
 
+import com.example.blue_hawk.application.usecase.auth.Access;
+
 import com.example.blue_hawk.application.dto.auth.CurrentUser;
 import com.example.blue_hawk.application.dto.openmatch.OpenMatchDtos.GameView;
 import com.example.blue_hawk.application.dto.openmatch.OpenMatchDtos.HostCommand;
@@ -8,6 +10,8 @@ import com.example.blue_hawk.application.dto.openmatch.OpenMatchDtos.ListQuery;
 import com.example.blue_hawk.application.dto.openmatch.OpenMatchDtos.MyRequestView;
 import com.example.blue_hawk.application.dto.openmatch.OpenMatchDtos.OpenMatchView;
 import com.example.blue_hawk.application.dto.openmatch.OpenMatchDtos.RequestView;
+import com.example.blue_hawk.application.dto.realtime.RealtimeEvents.MatchChanged;
+import com.example.blue_hawk.application.port.RealtimePublisher;
 import com.example.blue_hawk.application.usecase.notification.NotificationService;
 import com.example.blue_hawk.domain.entity.boardgame.Boardgame;
 import com.example.blue_hawk.domain.entity.notification.Notification;
@@ -28,7 +32,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -45,12 +51,15 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
     private final IBoardgameRepository boardgameRepository;
     private final IUserRepository userRepository;
     private final NotificationService notificationService;
+    private final RealtimePublisher realtimePublisher;
 
     public OpenMatchUseCaseImpl(IOpenMatchRepository openMatchRepository,
                                 IUserBoardGameRepository userBoardGameRepository,
                                 IBoardgameRepository boardgameRepository,
                                 IUserRepository userRepository,
-                                NotificationService notificationService) {
+                                NotificationService notificationService,
+                                RealtimePublisher realtimePublisher) {
+        this.realtimePublisher = realtimePublisher;
         this.openMatchRepository = openMatchRepository;
         this.userBoardGameRepository = userBoardGameRepository;
         this.boardgameRepository = boardgameRepository;
@@ -64,7 +73,7 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
         Instant now = Instant.now();
         List<OpenMatch> matches;
         if (query.mine()) {
-            requireLogin(currentUser);
+            Access.requireLogin(currentUser);
             matches = openMatchRepository.findUpcomingInvolving(currentUser.userId(), now);
         } else {
             matches = openMatchRepository.findUpcoming(now, query.city(), parseOptionalId(query.boardgameId()), LIST_LIMIT);
@@ -81,7 +90,7 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
     @Transactional
     public OpenMatchView host(HostCommand command) {
         CurrentUser currentUser = orAnonymous(command.currentUser());
-        requireLogin(currentUser);
+        Access.requireLogin(currentUser);
 
         UserBoardgame copy = userBoardGameRepository.findById(parseId(command.userBoardgameId(), "userBoardgameId"))
                 .orElseThrow(() -> badRequest("userBoardgameId does not exist"));
@@ -134,6 +143,7 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
                     .filter(OpenMatchRequest::isActive)
                     .forEach(r -> notificationService.notifyMatch(r.getUserId(), Notification.Type.MATCH_CANCELLED,
                             user.userId(), match.getId()));
+            matchChanged(match);
         }
         return view(saved, user);
     }
@@ -142,7 +152,7 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
     @Transactional
     public OpenMatchView requestToJoin(String id, String message, CurrentUser currentUser) {
         CurrentUser user = orAnonymous(currentUser);
-        requireLogin(user);
+        Access.requireLogin(user);
         OpenMatch match = findMatch(id);
         if (match.isHostedBy(user.userId())) {
             throw conflict("The host is already in the match");
@@ -168,6 +178,7 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
         openMatchRepository.saveRequest(request);
         notificationService.notifyMatch(match.getHostId(), Notification.Type.JOIN_REQUEST_RECEIVED, user.userId(),
                 match.getId());
+        matchChanged(match);
         return view(match, user);
     }
 
@@ -175,7 +186,7 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
     @Transactional
     public OpenMatchView cancelMyRequest(String id, CurrentUser currentUser) {
         CurrentUser user = orAnonymous(currentUser);
-        requireLogin(user);
+        Access.requireLogin(user);
         OpenMatch match = findMatch(id);
         OpenMatchRequest request = openMatchRepository.findRequest(match.getId(), user.userId())
                 .filter(OpenMatchRequest::isActive)
@@ -184,6 +195,7 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
         openMatchRepository.saveRequest(request);
         notificationService.notifyMatch(match.getHostId(), Notification.Type.JOIN_REQUEST_WITHDRAWN, user.userId(),
                 match.getId());
+        matchChanged(match);
         return view(match, user);
     }
 
@@ -219,13 +231,25 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
         notificationService.notifyMatch(request.getUserId(),
                 accept ? Notification.Type.JOIN_REQUEST_ACCEPTED : Notification.Type.JOIN_REQUEST_REJECTED,
                 user.userId(), match.getId());
+        matchChanged(match);
         return decided;
+    }
+
+    /**
+     * Tempo real ({@code match.changed}, depois do commit): o host e todos com pedido na partida (qualquer status)
+     * buscam a partida de novo.
+     */
+    private void matchChanged(OpenMatch match) {
+        Set<UUID> recipients = new LinkedHashSet<>();
+        recipients.add(match.getHostId());
+        openMatchRepository.findRequests(match.getId()).forEach(r -> recipients.add(r.getUserId()));
+        realtimePublisher.publishToUsers(recipients, MatchChanged.of(match.getId().toString()));
     }
 
     @Override
     public List<PlayedView> playedByMe(CurrentUser currentUser) {
         CurrentUser user = orAnonymous(currentUser);
-        requireLogin(user);
+        Access.requireLogin(user);
         return openMatchRepository.countPlayedByBoardgame(user.userId(), Instant.now()).entrySet().stream()
                 .map(e -> new PlayedView(e.getKey().toString(), e.getValue()))
                 .toList();
@@ -289,15 +313,9 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
     }
 
     private static void requireHost(OpenMatch match, CurrentUser currentUser) {
-        requireLogin(currentUser);
+        Access.requireLogin(currentUser);
         if (!match.isHostedBy(currentUser.userId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the host can do this");
-        }
-    }
-
-    private static void requireLogin(CurrentUser currentUser) {
-        if (!currentUser.authenticated()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
         }
     }
 

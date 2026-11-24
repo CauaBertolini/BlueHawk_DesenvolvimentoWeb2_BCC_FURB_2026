@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.usecase.userboardgame;
 
+import com.example.blue_hawk.application.usecase.Paging;
+
 import com.example.blue_hawk.application.dto.userboardgame.ListUserBoardgameOutput;
 import com.example.blue_hawk.application.dto.userboardgame.ListUserBoardgameQuery;
 import com.example.blue_hawk.domain.repository.IUserBoardGameRepository;
@@ -23,7 +25,7 @@ public class ListUserBoardgameUseCaseImpl implements ListUserBoardgameUseCase {
         UUID boardgameId = query.boardgameId() != null ? UUID.fromString(query.boardgameId()) : null;
 
         return userBoardGameRepository
-                .findAll(userId, boardgameId, query.page(), query.size())
+                .findAll(userId, boardgameId, Paging.page(query.page()), Paging.size(query.size()))
                 .getContent()
                 .stream()
                 .map(ub -> new ListUserBoardgameOutput(

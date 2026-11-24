@@ -1,5 +1,7 @@
 package com.example.blue_hawk.infrastructure.security;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -25,6 +27,7 @@ public class TokenBlacklistService {
 
     private final Map<String, Entry> blacklistedTokens = new ConcurrentHashMap<>();
     private final Duration grace;
+    private final AtomicReference<Instant> lastCleanup = new AtomicReference<>(Instant.now());
 
     /** Sem janela: o token é recusado assim que entra na lista (usado nos testes). */
     public TokenBlacklistService() {
@@ -61,8 +64,13 @@ public class TokenBlacklistService {
         return !now.isBefore(entry.activeFrom());
     }
 
+    /** No máximo uma varredura por minuto: varrer o mapa inteiro a cada requisição custava O(n) por chamada */
     private void cleanupExpiredTokens() {
         Instant now = Instant.now();
+        Instant last = lastCleanup.get();
+        if (now.isBefore(last.plusSeconds(60)) || !lastCleanup.compareAndSet(last, now)) {
+            return;
+        }
         blacklistedTokens.entrySet().removeIf(entry -> entry.getValue().expiresAt().isBefore(now));
     }
 

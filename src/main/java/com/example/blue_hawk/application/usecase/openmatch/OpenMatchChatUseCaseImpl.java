@@ -1,11 +1,16 @@
 package com.example.blue_hawk.application.usecase.openmatch;
 
+import com.example.blue_hawk.application.usecase.auth.Access;
+
 import com.example.blue_hawk.application.dto.auth.CurrentUser;
 import com.example.blue_hawk.application.dto.openmatch.OpenMatchChatDtos.ChatsView;
 import com.example.blue_hawk.application.dto.openmatch.OpenMatchChatDtos.LastMessageView;
 import com.example.blue_hawk.application.dto.openmatch.OpenMatchChatDtos.MemberView;
 import com.example.blue_hawk.application.dto.openmatch.OpenMatchChatDtos.MessageView;
 import com.example.blue_hawk.application.dto.openmatch.OpenMatchChatDtos.ThreadView;
+import com.example.blue_hawk.application.dto.realtime.RealtimeEvents.ChatMessage;
+import com.example.blue_hawk.application.dto.realtime.RealtimeEvents.MatchChannel;
+import com.example.blue_hawk.application.port.RealtimePublisher;
 import com.example.blue_hawk.application.usecase.notification.NotificationService;
 import com.example.blue_hawk.domain.entity.notification.Notification;
 import com.example.blue_hawk.domain.entity.openmatch.OpenMatch;
@@ -50,12 +55,15 @@ public class OpenMatchChatUseCaseImpl implements OpenMatchChatUseCase {
     private final INotificationRepository notificationRepository;
     private final NotificationService notificationService;
     private final IUserRepository userRepository;
+    private final RealtimePublisher realtimePublisher;
 
     public OpenMatchChatUseCaseImpl(IOpenMatchRepository openMatchRepository,
                                     IOpenMatchMessageRepository messageRepository,
                                     INotificationRepository notificationRepository,
                                     NotificationService notificationService,
-                                    IUserRepository userRepository) {
+                                    IUserRepository userRepository,
+                                    RealtimePublisher realtimePublisher) {
+        this.realtimePublisher = realtimePublisher;
         this.openMatchRepository = openMatchRepository;
         this.messageRepository = messageRepository;
         this.notificationRepository = notificationRepository;
@@ -65,7 +73,7 @@ public class OpenMatchChatUseCaseImpl implements OpenMatchChatUseCase {
 
     @Override
     public ChatsView chats(String openMatchId, CurrentUser currentUser) {
-        UUID viewer = requireLogin(currentUser);
+        UUID viewer = Access.requireUserId(currentUser);
         OpenMatch match = findMatch(openMatchId);
         boolean isHost = match.isHostedBy(viewer);
         Optional<OpenMatchRequest> myRequest = isHost ? Optional.empty()
@@ -117,7 +125,7 @@ public class OpenMatchChatUseCaseImpl implements OpenMatchChatUseCase {
     @Override
     @Transactional
     public List<MessageView> messages(String openMatchId, String withUserId, String after, CurrentUser currentUser) {
-        UUID viewer = requireLogin(currentUser);
+        UUID viewer = Access.requireUserId(currentUser);
         OpenMatch match = findMatch(openMatchId);
         UUID with = parseOptionalId(withUserId, "with");
         Instant afterInstant = parseOptionalInstant(after);
@@ -135,7 +143,7 @@ public class OpenMatchChatUseCaseImpl implements OpenMatchChatUseCase {
     @Override
     @Transactional
     public MessageView send(String openMatchId, String body, String recipientId, CurrentUser currentUser) {
-        UUID sender = requireLogin(currentUser);
+        UUID sender = Access.requireUserId(currentUser);
         OpenMatch match = findMatch(openMatchId);
         UUID recipient = parseOptionalId(recipientId, "recipientId");
         requireAccess(match, sender, recipient, true);
@@ -149,20 +157,32 @@ public class OpenMatchChatUseCaseImpl implements OpenMatchChatUseCase {
 
         OpenMatchMessage saved = messageRepository.save(OpenMatchMessage.send(match.getId(), sender, recipient, text));
 
+        Names names = new Names();
+        String matchId = match.getId().toString();
         if (recipient == null) {
-            // Mesa: o host e todos os aceitos, menos quem enviou
-            Set<UUID> recipients = new LinkedHashSet<>();
-            recipients.add(match.getHostId());
+            // Mesa: o host e todos os aceitos; notificação para todos menos quem enviou
+            Set<UUID> table = new LinkedHashSet<>();
+            table.add(match.getHostId());
             openMatchRepository.findRequests(match.getId()).stream()
                     .filter(r -> r.getStatus() == OpenMatchRequest.Status.ACCEPTED)
-                    .forEach(r -> recipients.add(r.getUserId()));
-            recipients.remove(sender);
-            recipients.forEach(r -> notificationService.notifyMessage(r, sender, match.getId(), null));
+                    .forEach(r -> table.add(r.getUserId()));
+            table.stream()
+                    .filter(r -> !r.equals(sender))
+                    .forEach(r -> notificationService.notifyMessage(r, sender, match.getId(), null));
+            // Tempo real: todos da mesa, inclusive quem enviou (outras abas)
+            table.add(sender);
+            table.forEach(r -> realtimePublisher.publishToUser(r, ChatMessage.of(MatchChannel.of(matchId, null),
+                    messageView(saved, r, names))));
         } else {
             notificationService.notifyMessage(recipient, sender, match.getId(), sender);
+            // Conversa direta: cada um vê a OUTRA pessoa em withUserId
+            realtimePublisher.publishToUser(sender, ChatMessage.of(MatchChannel.of(matchId, recipient.toString()),
+                    messageView(saved, sender, names)));
+            realtimePublisher.publishToUser(recipient, ChatMessage.of(MatchChannel.of(matchId, sender.toString()),
+                    messageView(saved, recipient, names)));
         }
 
-        return messageView(saved, sender, new Names());
+        return messageView(saved, sender, names);
     }
 
     /** Conversa com o instante usado na ordenação */
@@ -297,13 +317,6 @@ public class OpenMatchChatUseCaseImpl implements OpenMatchChatUseCase {
         }
         return openMatchRepository.findById(matchId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Match not found"));
-    }
-
-    private static UUID requireLogin(CurrentUser currentUser) {
-        if (currentUser == null || !currentUser.authenticated()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
-        }
-        return currentUser.userId();
     }
 
     private static UUID parseOptionalId(String value, String field) {

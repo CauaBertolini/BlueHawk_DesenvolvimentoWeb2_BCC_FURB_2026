@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.usecase.offer;
 
+import com.example.blue_hawk.application.dto.auth.CurrentUser;
+
 import com.example.blue_hawk.application.dto.offer.CreateOfferCommand;
 import com.example.blue_hawk.application.dto.offer.CreateOfferOutput;
 import com.example.blue_hawk.domain.entity.boardgame.Boardgame;
@@ -61,7 +63,7 @@ class CreateOfferUseCaseImplTest {
 
     private CreateOfferCommand command(String description, String condition, String deliveryMethod) {
         return new CreateOfferCommand(copy.getId().toString(), new BigDecimal("150.00"), null, description,
-                condition, deliveryMethod);
+                condition, deliveryMethod, new CurrentUser(SELLER, false));
     }
 
     private void assertBadRequest(CreateOfferCommand command) {

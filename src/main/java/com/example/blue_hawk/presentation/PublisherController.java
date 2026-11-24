@@ -1,5 +1,8 @@
 package com.example.blue_hawk.presentation;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+import com.example.blue_hawk.presentation.auth.Roles;
+
 import com.example.blue_hawk.domain.entity.publisher.Country;
 import com.example.blue_hawk.application.dto.publisher.CreatePublisherCommand;
 import com.example.blue_hawk.application.dto.publisher.CreatePublisherOutput;
@@ -53,6 +56,7 @@ public class PublisherController {
     }
 
     @PostMapping
+    @PreAuthorize(Roles.ADMIN_ONLY)
     public ResponseEntity<PublisherResponse> create(@RequestBody PublisherRequest request) {
         CreatePublisherCommand command = new CreatePublisherCommand(
                 null,
@@ -100,6 +104,7 @@ public class PublisherController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize(Roles.ADMIN_ONLY)
     public ResponseEntity<PublisherResponse> update(
             @PathVariable String id,
             @RequestBody PublisherRequest request) {
@@ -118,6 +123,7 @@ public class PublisherController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize(Roles.ADMIN_ONLY)
     public ApiResponse<Void> delete(@PathVariable String id) {
         deletePublisherUseCase.handle(new DeletePublisherCommand(id));
         return ApiResponse.empty();

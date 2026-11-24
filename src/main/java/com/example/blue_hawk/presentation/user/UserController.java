@@ -1,5 +1,8 @@
 package com.example.blue_hawk.presentation.user;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+import com.example.blue_hawk.presentation.auth.Roles;
+
 import com.example.blue_hawk.application.dto.auth.CurrentUser;
 import com.example.blue_hawk.application.dto.user.AuthenticateUserCommand;
 import com.example.blue_hawk.application.dto.user.AuthenticateUserOutput;
@@ -31,7 +34,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.UUID;
@@ -81,11 +83,11 @@ public class UserController {
     }
 
     // PUT e PATCH usam o mesmo caso de uso: só os campos enviados são alterados.
+    // Quem pode alterar, excluir ou ver cada conta é decidido nos casos de uso, a partir do currentUser.
     @PutMapping("/{uuid}")
     public UserOutput update(@PathVariable UUID uuid, @Valid @RequestBody UpdateUserCommand body,
                              CurrentUser currentUser) {
-        requireSelfOrAdmin(currentUser, uuid);
-        return updateUserUseCase.handle(new UpdateUserCommand(uuid.toString(), body.name(), body.email()));
+        return updateUserUseCase.handle(new UpdateUserCommand(uuid.toString(), body.name(), body.email(), currentUser));
     }
 
     @PatchMapping("/{uuid}")
@@ -94,24 +96,22 @@ public class UserController {
         return update(uuid, body, currentUser);
     }
 
-    /** Só o próprio usuário: nem um ADMIN troca a senha de outra pessoa */
     @PatchMapping("/{uuid}/password")
     public ApiResponse<Void> changePassword(@PathVariable UUID uuid, @Valid @RequestBody ChangeUserPasswordCommand body,
                                             CurrentUser currentUser) {
-        if (!currentUser.isSelf(uuid)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only change your own password");
-        }
-        changeUserPasswordUseCase.handle(
-                new ChangeUserPasswordCommand(uuid.toString(), body.currentPassword(), body.newPassword()));
+        changeUserPasswordUseCase.handle(new ChangeUserPasswordCommand(uuid.toString(), body.currentPassword(),
+                body.newPassword(), currentUser));
         return ApiResponse.empty();
     }
 
     @GetMapping("/{uuid}")
-    public UserOutput get(@PathVariable UUID uuid) {
-        return getUserUseCase.handle(new GetUserQuery(uuid.toString()));
+    public UserOutput get(@PathVariable UUID uuid, CurrentUser currentUser) {
+        return getUserUseCase.handle(new GetUserQuery(uuid.toString(), currentUser));
     }
 
+    /** Lista (com busca por e-mail) só para ADMIN: senão qualquer conta enumeraria os e-mails da base */
     @GetMapping
+    @PreAuthorize(Roles.ADMIN_ONLY)
     public List<UserOutput> list(@RequestParam(required = false) String name,
                                  @RequestParam(required = false) String email,
                                  @RequestParam(required = false) Integer page,
@@ -121,14 +121,7 @@ public class UserController {
 
     @DeleteMapping("/{uuid}")
     public ApiResponse<Void> delete(@PathVariable UUID uuid, CurrentUser currentUser) {
-        requireSelfOrAdmin(currentUser, uuid);
-        deleteUserUseCase.handle(new DeleteUserCommand(uuid.toString()));
+        deleteUserUseCase.handle(new DeleteUserCommand(uuid.toString(), currentUser));
         return ApiResponse.empty();
-    }
-
-    private static void requireSelfOrAdmin(CurrentUser currentUser, UUID userId) {
-        if (!currentUser.isSelfOrAdmin(userId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only change your own account");
-        }
     }
 }

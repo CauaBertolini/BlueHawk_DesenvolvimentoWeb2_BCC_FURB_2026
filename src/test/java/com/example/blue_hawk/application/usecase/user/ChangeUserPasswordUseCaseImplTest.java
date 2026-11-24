@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.usecase.user;
 
+import com.example.blue_hawk.application.dto.auth.CurrentUser;
+
 import com.example.blue_hawk.application.dto.user.ChangeUserPasswordCommand;
 import com.example.blue_hawk.domain.entity.user.User;
 import com.example.blue_hawk.domain.entity.user.UserRole;
@@ -46,7 +48,7 @@ class ChangeUserPasswordUseCaseImplTest {
         when(passwordEncoder.matches("current-password", "old-hash")).thenReturn(true);
         when(passwordEncoder.encode("new-password")).thenReturn("new-hash");
 
-        useCase.handle(new ChangeUserPasswordCommand(userId.toString(), "current-password", "new-password"));
+        useCase.handle(new ChangeUserPasswordCommand(userId.toString(), "current-password", "new-password", new CurrentUser(userId, false)));
 
         ArgumentCaptor<User> saved = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(saved.capture());
@@ -59,7 +61,7 @@ class ChangeUserPasswordUseCaseImplTest {
         when(passwordEncoder.matches("wrong-password", "old-hash")).thenReturn(false);
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
-                () -> useCase.handle(new ChangeUserPasswordCommand(userId.toString(), "wrong-password", "new-password")));
+                () -> useCase.handle(new ChangeUserPasswordCommand(userId.toString(), "wrong-password", "new-password", new CurrentUser(userId, false))));
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
         verify(passwordEncoder, never()).encode(anyString());
@@ -71,7 +73,7 @@ class ChangeUserPasswordUseCaseImplTest {
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
-                () -> useCase.handle(new ChangeUserPasswordCommand(userId.toString(), "current-password", "new-password")));
+                () -> useCase.handle(new ChangeUserPasswordCommand(userId.toString(), "current-password", "new-password", new CurrentUser(userId, false))));
 
         assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
         verify(userRepository, never()).save(any());

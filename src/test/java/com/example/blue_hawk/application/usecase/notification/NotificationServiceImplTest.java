@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.usecase.notification;
 
+import com.example.blue_hawk.application.port.RealtimePublisher;
+import com.example.blue_hawk.application.dto.realtime.RealtimeEvents.NotificationsChanged;
 import com.example.blue_hawk.domain.entity.notification.Notification;
 import com.example.blue_hawk.domain.repository.INotificationRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +30,9 @@ import static org.mockito.Mockito.when;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class NotificationServiceImplTest {
 
+    @Mock
+    private RealtimePublisher realtimePublisher;
+
     private static final UUID RECIPIENT = UUID.randomUUID();
     private static final UUID SENDER = UUID.randomUUID();
     private static final UUID OTHER_SENDER = UUID.randomUUID();
@@ -42,7 +47,7 @@ class NotificationServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new NotificationServiceImpl(repository);
+        service = new NotificationServiceImpl(repository, realtimePublisher);
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
     }
 
@@ -190,5 +195,29 @@ class NotificationServiceImplTest {
         service.markDirectConversationRead(RECIPIENT, CONVERSATION);
 
         verify(repository).markDirectMessagesRead(eq(RECIPIENT), eq(CONVERSATION), any());
+    }
+
+    // ── tempo real ──────────────────────────────────────────────────────────
+
+    @Test
+    void creatingOrAggregatingPushesNotificationsChangedToTheRecipientOnly() {
+        service.notifyMessage(RECIPIENT, SENDER, MATCH, null);
+        service.notifyMatch(SENDER, Notification.Type.JOIN_REQUEST_RECEIVED, SENDER, MATCH);
+
+        verify(realtimePublisher).publishToUser(RECIPIENT, NotificationsChanged.INSTANCE);
+        verify(realtimePublisher, never()).publishToUser(eq(SENDER), any());
+    }
+
+    @Test
+    void markingAsReadPushesOnlyWhenSomethingChanged() {
+        when(repository.markMessagesRead(eq(RECIPIENT), eq(MATCH), any(), any())).thenReturn(0);
+        when(repository.markDirectMessagesRead(eq(RECIPIENT), eq(CONVERSATION), any())).thenReturn(0);
+        service.markThreadRead(RECIPIENT, MATCH, SENDER);
+        service.markDirectConversationRead(RECIPIENT, CONVERSATION);
+        verify(realtimePublisher, never()).publishToUser(any(), any());
+
+        when(repository.markNegotiationMessagesRead(eq(RECIPIENT), eq(NEGOTIATION), any())).thenReturn(2);
+        assertEquals(2, service.markNegotiationRead(RECIPIENT, NEGOTIATION));
+        verify(realtimePublisher).publishToUser(RECIPIENT, NotificationsChanged.INSTANCE);
     }
 }

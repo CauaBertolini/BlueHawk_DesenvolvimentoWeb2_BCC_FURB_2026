@@ -1,5 +1,9 @@
 package com.example.blue_hawk.application.usecase.user;
 
+import com.example.blue_hawk.application.dto.auth.CurrentUser;
+
+import com.example.blue_hawk.application.port.RealtimeConnections;
+
 import com.example.blue_hawk.application.dto.user.DeleteUserCommand;
 import com.example.blue_hawk.domain.repository.IUserRepository;
 import org.junit.jupiter.api.Test;
@@ -24,6 +28,8 @@ class DeleteUserUseCaseImplTest {
 
     @Mock
     private IUserRepository userRepository;
+    @Mock
+    private RealtimeConnections realtimeConnections;
 
     @InjectMocks
     private DeleteUserUseCaseImpl useCase;
@@ -34,9 +40,10 @@ class DeleteUserUseCaseImplTest {
     void shouldPhysicallyDeleteUserWhenItExists() {
         when(userRepository.existsById(userId)).thenReturn(true);
 
-        useCase.handle(new DeleteUserCommand(userId.toString()));
+        useCase.handle(new DeleteUserCommand(userId.toString(), new CurrentUser(userId, false)));
 
         verify(userRepository).deleteById(userId);
+        verify(realtimeConnections).disconnectUser(userId);
     }
 
     @Test
@@ -44,7 +51,7 @@ class DeleteUserUseCaseImplTest {
         when(userRepository.existsById(userId)).thenReturn(false);
 
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
-                () -> useCase.handle(new DeleteUserCommand(userId.toString())));
+                () -> useCase.handle(new DeleteUserCommand(userId.toString(), new CurrentUser(userId, false))));
 
         assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
         verify(userRepository, never()).deleteById(any());

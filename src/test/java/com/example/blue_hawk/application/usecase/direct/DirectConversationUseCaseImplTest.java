@@ -1,8 +1,11 @@
 package com.example.blue_hawk.application.usecase.direct;
 
+import com.example.blue_hawk.application.port.RealtimePublisher;
 import com.example.blue_hawk.application.dto.auth.CurrentUser;
 import com.example.blue_hawk.application.dto.direct.DirectConversationDtos.ConversationView;
 import com.example.blue_hawk.application.dto.direct.DirectConversationDtos.MessageView;
+import com.example.blue_hawk.application.dto.realtime.RealtimeEvents.ChatMessage;
+import com.example.blue_hawk.application.dto.realtime.RealtimeEvents.DirectChannel;
 import com.example.blue_hawk.application.usecase.direct.DirectConversationUseCase.OpenResult;
 import com.example.blue_hawk.application.usecase.notification.NotificationService;
 import com.example.blue_hawk.domain.entity.direct.DirectConversation;
@@ -52,6 +55,9 @@ import static org.mockito.Mockito.when;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class DirectConversationUseCaseImplTest {
 
+    @Mock
+    private RealtimePublisher realtimePublisher;
+
     private static final UUID ME = UUID.randomUUID();
     private static final UUID ANA = UUID.randomUUID();
     private static final UUID BOB = UUID.randomUUID();
@@ -80,7 +86,7 @@ class DirectConversationUseCaseImplTest {
     @BeforeEach
     void setUp() {
         useCase = new DirectConversationUseCaseImpl(conversationRepository, messageRepository, userRepository,
-                profileRepository, notificationRepository, notificationService);
+                profileRepository, notificationRepository, notificationService, realtimePublisher);
         Map<UUID, String> names = Map.of(ME, "Eu", ANA, "Ana Souza", BOB, "Bob");
         when(userRepository.findById(any())).thenAnswer(inv -> {
             UUID id = inv.getArgument(0);
@@ -265,5 +271,25 @@ class DirectConversationUseCaseImplTest {
         ArgumentCaptor<UUID> recipient = ArgumentCaptor.forClass(UUID.class);
         verify(notificationService).notifyDirectMessage(recipient.capture(), eq(ANA), eq(UUID.fromString(id)));
         assertEquals(ME, recipient.getValue());
+    }
+
+    @Test
+    void sendIsPushedToBothParticipantsWithMinePerRecipient() {
+        String id = conversationWithAna();
+
+        useCase.send(id, "Oi", as(ME));
+
+        ArgumentCaptor<Object> toMe = ArgumentCaptor.forClass(Object.class);
+        ArgumentCaptor<Object> toAna = ArgumentCaptor.forClass(Object.class);
+        verify(realtimePublisher).publishToUser(eq(ME), toMe.capture());
+        verify(realtimePublisher).publishToUser(eq(ANA), toAna.capture());
+        ChatMessage mine = (ChatMessage) toMe.getValue();
+        ChatMessage theirs = (ChatMessage) toAna.getValue();
+        assertEquals("chat.message", mine.type());
+        assertEquals(DirectChannel.of(id), mine.channel());
+        assertEquals(DirectChannel.of(id), theirs.channel());
+        assertTrue(((MessageView) mine.message()).mine());
+        assertFalse(((MessageView) theirs.message()).mine());
+        verify(realtimePublisher, never()).publishToUser(eq(BOB), any());
     }
 }

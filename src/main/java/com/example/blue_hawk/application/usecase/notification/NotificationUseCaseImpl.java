@@ -1,11 +1,15 @@
 package com.example.blue_hawk.application.usecase.notification;
 
+import com.example.blue_hawk.application.usecase.auth.Access;
+
 import com.example.blue_hawk.application.dto.auth.CurrentUser;
 import com.example.blue_hawk.application.dto.notification.NotificationDtos.ActorView;
 import com.example.blue_hawk.application.dto.notification.NotificationDtos.BoardgameView;
 import com.example.blue_hawk.application.dto.notification.NotificationDtos.MatchView;
 import com.example.blue_hawk.application.dto.notification.NotificationDtos.NegotiationView;
 import com.example.blue_hawk.application.dto.notification.NotificationDtos.NotificationView;
+import com.example.blue_hawk.application.dto.realtime.RealtimeEvents.NotificationsChanged;
+import com.example.blue_hawk.application.port.RealtimePublisher;
 import com.example.blue_hawk.domain.entity.boardgame.Boardgame;
 import com.example.blue_hawk.domain.entity.notification.Notification;
 import com.example.blue_hawk.domain.entity.openmatch.OpenMatch;
@@ -39,6 +43,7 @@ public class NotificationUseCaseImpl implements NotificationUseCase {
     private final IBoardgameRepository boardgameRepository;
     private final IOfferNegotiationRepository negotiationRepository;
     private final IOfferRepository offerRepository;
+    private final RealtimePublisher realtimePublisher;
 
     public NotificationUseCaseImpl(INotificationRepository notificationRepository,
                                    IUserRepository userRepository,
@@ -46,7 +51,9 @@ public class NotificationUseCaseImpl implements NotificationUseCase {
                                    IUserBoardGameRepository userBoardGameRepository,
                                    IBoardgameRepository boardgameRepository,
                                    IOfferNegotiationRepository negotiationRepository,
-                                   IOfferRepository offerRepository) {
+                                   IOfferRepository offerRepository,
+                                   RealtimePublisher realtimePublisher) {
+        this.realtimePublisher = realtimePublisher;
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
         this.openMatchRepository = openMatchRepository;
@@ -58,7 +65,7 @@ public class NotificationUseCaseImpl implements NotificationUseCase {
 
     @Override
     public List<NotificationView> list(int page, int size, CurrentUser currentUser) {
-        UUID userId = requireLogin(currentUser);
+        UUID userId = Access.requireUserId(currentUser);
         int safePage = Math.max(0, page);
         int safeSize = Math.min(MAX_PAGE_SIZE, Math.max(1, size));
         Lookups lookups = new Lookups();
@@ -69,13 +76,13 @@ public class NotificationUseCaseImpl implements NotificationUseCase {
 
     @Override
     public long unreadCount(CurrentUser currentUser) {
-        return notificationRepository.countUnread(requireLogin(currentUser));
+        return notificationRepository.countUnread(Access.requireUserId(currentUser));
     }
 
     @Override
     @Transactional
     public NotificationView markRead(String id, CurrentUser currentUser) {
-        UUID userId = requireLogin(currentUser);
+        UUID userId = Access.requireUserId(currentUser);
         Notification notification = parseOptionalId(id)
                 .flatMap(notificationRepository::findById)
                 .filter(n -> userId.equals(n.getUserId()))
@@ -83,6 +90,7 @@ public class NotificationUseCaseImpl implements NotificationUseCase {
         if (!notification.isRead()) {
             notification.markRead();
             notification = notificationRepository.save(notification);
+            realtimePublisher.publishToUser(userId, NotificationsChanged.INSTANCE);
         }
         return view(notification, new Lookups());
     }
@@ -90,7 +98,10 @@ public class NotificationUseCaseImpl implements NotificationUseCase {
     @Override
     @Transactional
     public int markAllRead(CurrentUser currentUser) {
-        return notificationRepository.markAllRead(requireLogin(currentUser), Instant.now());
+        UUID userId = Access.requireUserId(currentUser);
+        int updated = notificationRepository.markAllRead(userId, Instant.now());
+        if (updated > 0) realtimePublisher.publishToUser(userId, NotificationsChanged.INSTANCE);
+        return updated;
     }
 
     // ── montagem das views ──────────────────────────────────────────────────
@@ -162,13 +173,6 @@ public class NotificationUseCaseImpl implements NotificationUseCase {
     }
 
     // ── validações ──────────────────────────────────────────────────────────
-
-    private static UUID requireLogin(CurrentUser currentUser) {
-        if (currentUser == null || !currentUser.authenticated()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
-        }
-        return currentUser.userId();
-    }
 
     /** Id inválido é tratado como inexistente (404) */
     private static Optional<UUID> parseOptionalId(String value) {

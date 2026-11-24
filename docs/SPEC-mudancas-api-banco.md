@@ -605,6 +605,8 @@ Como o usuário chega aos casos de uso:
 `/negotiations/**`, `/chats/**` e `/direct-conversations/**` exigem token. Do perfil, só a foto
 (`/users/*/avatar`) é pública: `/users/me/**` e `/users/*/public-profile` exigem token.
 
+`/ws` (WebSocket, seção 19) é liberada no `SecurityConfig`: a autenticação acontece dentro do socket.
+
 ## 16. Conversa direta entre jogadores da mesa
 
 Além da conversa host ↔ quem pediu (seção 9), dois jogadores **aceitos** na mesma partida podem conversar em
@@ -719,6 +721,60 @@ Partidas abertas e as canceladas antes da mudança ficam com `NULL`.
   cancelada).
 - Notificações: `match` = `{ id, gameName, scheduledAt, cancelReason }` (`cancelReason` preenchido quando a partida
   está cancelada — útil em `MATCH_CANCELLED`).
+
+## 19. Tempo real (WebSocket)
+
+Push do servidor para o navegador: mensagens novas nos chats, mudanças nas notificações e no estado das partidas.
+Substitui o polling do front (que pode continuar como reserva). **Sem mudança no banco.**
+
+### Conexão
+
+- WebSocket puro (`spring-boot-starter-websocket`, `TextWebSocketHandler`; sem STOMP/SockJS) em **`/ws`**
+  (ex.: `ws://localhost:8080/ws`). Origens aceitas = as do CORS (`app.cors.allowed-origins` /
+  `CORS_ALLOWED_ORIGINS`).
+- O token **não** vai na URL. Depois de abrir, o cliente envia `{"type":"auth","token":"<JWT>"}`. O token é
+  validado como no HTTP (mesmo `JwtDecoder`: assinatura e validade; e o `TokenBlacklistService`).
+  - Válido → `{"type":"ready"}`.
+  - Inválido, vencido, invalidado, ou nenhum `auth` válido em **10 s** → o servidor fecha com o código **4401**.
+  - Antes do `auth`, qualquer outra mensagem é ignorada. Depois: `{"type":"ping"}` → `{"type":"pong"}`.
+- Um usuário pode ter várias conexões (abas): o servidor guarda usuário → sessões e envia para todas.
+- O token usado no `auth` só vale no momento da conexão; o socket segue aberto mesmo que o token HTTP seja
+  rotacionado depois. Ao reconectar, o cliente deve mandar o token mais recente.
+
+### Entrega
+
+Os eventos são publicados pelos casos de uso através da porta `application/port/RealtimePublisher` e só saem
+**depois do commit** da transação (rollback = nada é enviado). Dentro de uma transação, o mesmo evento para o
+mesmo usuário sai uma vez só. Falha ao enviar só vira log: nunca derruba a requisição HTTP. Usuário sem conexão
+aberta não recebe (o cliente busca o estado ao reconectar).
+
+### Eventos (servidor → cliente)
+
+**`chat.message`** — nova mensagem, para **todos** os participantes da conversa, inclusive quem enviou (outras
+abas). `message` tem o mesmo formato do GET de mensagens da conversa, com `mine` calculado para quem recebe.
+
+| Conversa | `channel` | Destinatários | `message` |
+|---|---|---|---|
+| Mesa da partida | `{ "kind": "MATCH", "matchId", "withUserId": null }` | host + aceitos | como `GET /open-matches/{id}/messages` |
+| Conversa direta da partida | `{ "kind": "MATCH", "matchId", "withUserId": "<a OUTRA pessoa>" }` | as duas pessoas (cada uma recebe a outra em `withUserId`) | idem |
+| Negociação | `{ "kind": "NEGOTIATION", "negotiationId" }` | comprador + vendedor | como `GET /negotiations/{id}/messages` |
+| Mensagem direta | `{ "kind": "DIRECT", "conversationId" }` | os dois usuários | como `GET /direct-conversations/{id}/messages` |
+
+```json
+{ "type": "chat.message",
+  "channel": { "kind": "MATCH", "matchId": "6f1c…", "withUserId": "a3b2…" },
+  "message": { "id": "…", "senderId": "a3b2…", "senderName": "Ana", "recipientId": "9d8e…",
+               "body": "Oi", "createdAt": "2026-11-24T22:00:00.123Z", "mine": false } }
+```
+
+**`notifications.changed`** — `{"type":"notifications.changed"}` para o usuário cujas notificações mudaram:
+alguma foi criada ou agregada, ou alguma foi marcada como lida (só quando pelo menos uma linha mudou de fato; ler
+uma conversa sem nada não lido não gera evento, evitando laço com o GET de mensagens que marca como lidas). Sem
+payload: o cliente busca de novo contagens e lista.
+
+**`match.changed`** — `{"type":"match.changed","matchId":"…"}` para o host e todos com pedido na partida
+(qualquer status) quando: alguém pede para entrar, o host aceita ou recusa, quem pediu desiste, o host cancela.
+O cliente busca a partida (e os pedidos/chats) de novo.
 
 ## Pendências conhecidas
 

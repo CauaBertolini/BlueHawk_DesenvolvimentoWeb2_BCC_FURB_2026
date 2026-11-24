@@ -1,10 +1,15 @@
 package com.example.blue_hawk.application.usecase.direct;
 
+import com.example.blue_hawk.application.usecase.auth.Access;
+
 import com.example.blue_hawk.application.dto.auth.CurrentUser;
 import com.example.blue_hawk.application.dto.direct.DirectConversationDtos.ConversationView;
 import com.example.blue_hawk.application.dto.direct.DirectConversationDtos.LastMessageView;
 import com.example.blue_hawk.application.dto.direct.DirectConversationDtos.MessageView;
 import com.example.blue_hawk.application.dto.direct.DirectConversationDtos.UserView;
+import com.example.blue_hawk.application.dto.realtime.RealtimeEvents.ChatMessage;
+import com.example.blue_hawk.application.dto.realtime.RealtimeEvents.DirectChannel;
+import com.example.blue_hawk.application.port.RealtimePublisher;
 import com.example.blue_hawk.application.usecase.notification.NotificationService;
 import com.example.blue_hawk.domain.entity.direct.DirectConversation;
 import com.example.blue_hawk.domain.entity.direct.DirectMessage;
@@ -39,13 +44,16 @@ public class DirectConversationUseCaseImpl implements DirectConversationUseCase 
     private final IUserProfileRepository profileRepository;
     private final INotificationRepository notificationRepository;
     private final NotificationService notificationService;
+    private final RealtimePublisher realtimePublisher;
 
     public DirectConversationUseCaseImpl(IDirectConversationRepository conversationRepository,
                                          IDirectMessageRepository messageRepository,
                                          IUserRepository userRepository,
                                          IUserProfileRepository profileRepository,
                                          INotificationRepository notificationRepository,
-                                         NotificationService notificationService) {
+                                         NotificationService notificationService,
+                                         RealtimePublisher realtimePublisher) {
+        this.realtimePublisher = realtimePublisher;
         this.conversationRepository = conversationRepository;
         this.messageRepository = messageRepository;
         this.userRepository = userRepository;
@@ -57,7 +65,7 @@ public class DirectConversationUseCaseImpl implements DirectConversationUseCase 
     @Override
     @Transactional
     public OpenResult open(String userId, CurrentUser currentUser) {
-        UUID me = requireLogin(currentUser);
+        UUID me = Access.requireUserId(currentUser);
         UUID other = parseId(userId, "userId");
         if (other.equals(me)) {
             throw badRequest("You cannot start a conversation with yourself");
@@ -79,7 +87,7 @@ public class DirectConversationUseCaseImpl implements DirectConversationUseCase 
 
     @Override
     public ConversationView get(String conversationId, CurrentUser currentUser) {
-        UUID me = requireLogin(currentUser);
+        UUID me = Access.requireUserId(currentUser);
         DirectConversation conversation = load(conversationId, me);
         return view(conversation, me, new Names());
     }
@@ -87,7 +95,7 @@ public class DirectConversationUseCaseImpl implements DirectConversationUseCase 
     @Override
     @Transactional
     public List<MessageView> messages(String conversationId, String after, CurrentUser currentUser) {
-        UUID me = requireLogin(currentUser);
+        UUID me = Access.requireUserId(currentUser);
         DirectConversation conversation = load(conversationId, me);
         Instant afterInstant = parseOptionalInstant(after);
 
@@ -101,7 +109,7 @@ public class DirectConversationUseCaseImpl implements DirectConversationUseCase 
     @Override
     @Transactional
     public MessageView send(String conversationId, String body, CurrentUser currentUser) {
-        UUID me = requireLogin(currentUser);
+        UUID me = Access.requireUserId(currentUser);
         DirectConversation conversation = load(conversationId, me);
         UUID other = conversation.otherThan(me);
         if (!acceptsDirectMessages(other)) {
@@ -117,7 +125,14 @@ public class DirectConversationUseCaseImpl implements DirectConversationUseCase 
         conversationRepository.save(conversation);
         notificationService.notifyDirectMessage(other, me, conversation.getId());
 
-        return messageView(saved, me, new Names());
+        // Tempo real: os dois (quem enviou também, por causa das outras abas)
+        Names names = new Names();
+        DirectChannel channel = DirectChannel.of(conversation.getId().toString());
+        for (UUID participant : List.of(me, other)) {
+            realtimePublisher.publishToUser(participant, ChatMessage.of(channel, messageView(saved, participant,
+                    names)));
+        }
+        return messageView(saved, me, names);
     }
 
     // ── regras ──────────────────────────────────────────────────────────────
@@ -179,13 +194,6 @@ public class DirectConversationUseCaseImpl implements DirectConversationUseCase 
     }
 
     // ── validações ──────────────────────────────────────────────────────────
-
-    private static UUID requireLogin(CurrentUser currentUser) {
-        if (currentUser == null || !currentUser.authenticated()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
-        }
-        return currentUser.userId();
-    }
 
     private static UUID parseId(String value, String field) {
         try {
