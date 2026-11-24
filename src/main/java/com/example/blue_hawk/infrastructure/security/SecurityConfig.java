@@ -58,8 +58,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/users/*/avatar").permitAll()
                         // Matchmaking: a vitrine de partidas é pública; ações exigem login (checado no caso de uso)
                         .requestMatchers(HttpMethod.GET, "/open-matches", "/open-matches/*").permitAll()
-                        // Vitrine da Loja (anúncios ativos de jogos do catálogo)
-                        .requestMatchers(HttpMethod.GET, "/store/offers", "/store/offers/*").permitAll()
+                        // Vitrine da Loja (anúncios ativos de jogos do catálogo): só a listagem é pública;
+                        // abrir um anúncio (/store/offers/{id}) exige login
+                        .requestMatchers(HttpMethod.GET, "/store/offers").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/error").permitAll()
                         // WebSocket de tempo real: a autenticação acontece dentro do socket (mensagem "auth")
                         .requestMatchers("/ws").permitAll()

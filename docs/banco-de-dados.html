@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Banco do Blue Hawk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Grenze+Gotisch:wght@800&family=Grenze:wght@700;800&family=Hanken+Grotesk:wght@400;600;800&display=swap">
+<style>
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; }
+  [hidden] { display: none !important; }
+  /* Layout: coluna única de leitura; o diagrama e as tabelas de colunas rolam dentro dos próprios contêineres. */
+  :root {
+    /* paleta do sistema (src/styles/global.css do front) */
+    --noite: #0b1147;
+    --painel: #161e66;
+    --ultramar: #2438e8;
+    --claro: #7e92ff;
+    --gelo: #c6d0ff;
+    --giz: #f3f4fc;
+    --acafrao: #ffb000;
+
+    --bg: var(--noite);
+    --surface: var(--painel);
+    --text: var(--giz);
+    --text-muted: var(--gelo);
+    --line: var(--ultramar);
+    --edge: var(--claro);
+    --accent: var(--acafrao);
+    --accent-text: var(--acafrao);
+    --on-accent: var(--noite);
+    --row: rgb(36 56 232 / 0.22);
+
+    --marca: 'Grenze Gotisch', 'Times New Roman', serif;
+    --display: 'Grenze', 'Times New Roman', serif;
+    --texto: 'Hanken Grotesk', 'Segoe UI', system-ui, sans-serif;
+    --mono: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, monospace;
+    --corte: 14px;
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: var(--giz); --surface: #fff; --text: var(--noite); --text-muted: #3a4384;
+      --line: var(--gelo); --edge: #4a5bd4; --accent-text: #8a5a00; --row: rgb(198 208 255 / 0.4);
+      color-scheme: light;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: var(--giz); --surface: #fff; --text: var(--noite); --text-muted: #3a4384;
+    --line: var(--gelo); --edge: #4a5bd4; --accent-text: #8a5a00; --row: rgb(198 208 255 / 0.4);
+    color-scheme: light;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 400 16px/1.6 var(--texto);
+  }
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding-block: 40px 72px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 56px;
+  }
+  section { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+  h1, h2, h3 { margin: 0; text-wrap: balance; }
+  h1 { font: 800 clamp(2rem, 5vw, 3.1rem)/1.05 var(--display); }
+  h2 { font: 800 1.7rem/1.15 var(--display); }
+  h3 { font: 700 1.15rem/1.2 var(--display); }
+  p { margin: 0; max-width: 68ch; }
+  .muted { color: var(--text-muted); }
+  code, .mono { font-family: var(--mono); font-size: 0.86em; }
+
+  .brand { font: 800 1.35rem/1 var(--marca); color: var(--accent-text); letter-spacing: 0.01em; }
+  header { display: flex; flex-direction: column; gap: 14px; }
+  .lede { font-size: 1.12rem; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .stat {
+    background: var(--surface);
+    padding: 16px 18px;
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--corte)), calc(100% - var(--corte)) 100%, 0 100%);
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .stat b { font: 800 2.2rem/1 var(--display); font-variant-numeric: tabular-nums; }
+  .stat span { color: var(--text-muted); font-size: 0.92rem; }
+
+  .notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px 28px; padding: 0; margin: 0; list-style: none; }
+  .notes li { border-top: 2px solid var(--line); padding-top: 10px; }
+  .notes b { display: block; }
+
+  /* ── diagrama ── */
+  figure { margin: 0; display: flex; flex-direction: column; gap: 12px; }
+  .scroll { overflow-x: auto; background: var(--surface); padding: 8px; }
+  .scroll svg { display: block; width: 100%; min-width: 980px; height: auto; font-family: var(--texto); }
+  figcaption { color: var(--text-muted); font-size: 0.92rem; max-width: 80ch; }
+  .n-base polygon { fill: var(--bg); stroke: var(--line); stroke-width: 1.5; }
+  .n-alt polygon { fill: var(--bg); stroke: var(--accent); stroke-width: 2.5; }
+  .n-new polygon { fill: var(--accent); stroke: var(--accent); stroke-width: 1.5; }
+  .tn { font: 600 12px var(--mono); fill: var(--text); }
+  .ts { font: 400 10.5px var(--texto); fill: var(--text-muted); }
+  .n-alt .ts { fill: var(--accent-text); font-weight: 600; }
+  .n-new .tn, .n-new .ts { fill: var(--on-accent); }
+  .edge { fill: none; stroke: var(--edge); stroke-width: 1.4; }
+  .halo { fill: none; stroke: var(--bg); stroke-width: 7; }
+  .ah { fill: var(--edge); }
+  .el { font: 600 10px var(--texto); fill: var(--text-muted); }
+  .dl { font: 800 10px var(--texto); fill: var(--text-muted); letter-spacing: 0.12em; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 0.92rem; }
+  .legend span { display: inline-flex; align-items: center; gap: 8px; }
+  .sw { width: 22px; height: 14px; display: inline-block; border: 2px solid var(--line); background: var(--bg); }
+  .sw.alt { border-color: var(--accent); }
+  .sw.new { border-color: var(--accent); background: var(--accent); }
+
+  /* ── migrações ── */
+  .migs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+  .migs li { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 4px 24px; padding: 14px 0; border-top: 1px solid var(--line); }
+  .migs .v { font: 600 0.84rem var(--mono); color: var(--accent-text); font-variant-numeric: tabular-nums; }
+  .migs .v small { display: block; color: var(--text-muted); font: 400 0.84rem var(--texto); }
+  .migs h3 { margin-bottom: 4px; }
+  .migs p { color: var(--text-muted); max-width: 78ch; }
+  .migs p code { color: var(--text); }
+  details.old > summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+  details.old > summary:focus-visible, details.t > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  @media (max-width: 640px) { .migs li { grid-template-columns: minmax(0, 1fr); } }
+
+  /* ── tabelas ── */
+  .domain { display: flex; flex-direction: column; gap: 12px; }
+  .domain > h3 { color: var(--text-muted); font: 800 0.8rem var(--texto); letter-spacing: 0.12em; text-transform: uppercase; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 12px; align-items: start; }
+  details.t { background: var(--surface); min-width: 0; }
+  details.t > summary { cursor: pointer; padding: 12px 16px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; list-style-position: inside; }
+  details.t .name { font: 600 1rem var(--mono); }
+  details.t .what { color: var(--text-muted); font-size: 0.9rem; }
+  .tag { font: 800 0.7rem var(--texto); letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 8px; }
+  .tag.new { background: var(--accent); color: var(--on-accent); }
+  .tag.alt { box-shadow: inset 0 0 0 2px var(--accent); color: var(--accent-text); }
+  .tbody { padding: 0 16px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .cols { overflow-x: auto; }
+  .cols table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+  .cols th { text-align: left; color: var(--text-muted); font-weight: 600; padding: 4px 10px 4px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .cols td { padding: 5px 10px 5px 0; border-bottom: 1px solid var(--row); vertical-align: top; }
+  .cols td:nth-child(1), .cols td:nth-child(2) { font-family: var(--mono); font-size: 0.82rem; white-space: nowrap; }
+  .cols tr.added td:first-child { color: var(--accent-text); font-weight: 700; }
+  .cols tr.added td:first-child::before { content: "+ "; }
+  .extra { color: var(--text-muted); font-size: 0.88rem; margin: 0; }
+  footer { color: var(--text-muted); font-size: 0.9rem; border-top: 1px solid var(--line); padding-top: 16px; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="brand">Blue Hawk</div>
+    <h1>O que muda no banco de dados</h1>
+    <p class="lede">O release da <code>dev</code> para a <code>prd</code> aplica 10 migrações Flyway, escritas em 23 e 24/11/2026. O banco passa de 9 para 21 tabelas. Todas as mudanças são aditivas: nenhuma coluna ou tabela existente é removida ou tem o tipo trocado.</p>
+    <div class="stats">
+      <div class="stat"><b>10</b><span>migrações pendentes em produção</span></div>
+      <div class="stat"><b>12</b><span>tabelas novas</span></div>
+      <div class="stat"><b>2</b><span>tabelas existentes alteradas</span></div>
+      <div class="stat"><b>9</b><span>colunas novas em tabelas existentes</span></div>
+      <div class="stat"><b>15</b><span>índices novos</span></div>
+    </div>
+  </header>
+
+  <section>
+    <h2>O que saber antes de subir</h2>
+    <ul class="notes">
+      <li><b>Jogos existentes continuam visíveis.</b> Todo <code>board_game</code> já cadastrado recebe <code>approval_status = 'APPROVED'</code>. Depois da migração o padrão vira <code>'PENDING'</code>, e a aplicação sempre informa o status.</li>
+      <li><b>Dados antigos ficam sem os campos novos.</b> Jogos antigos ficam sem categoria e anúncios antigos sem estado de conservação e forma de entrega (<code>NULL</code>). A API só exige esses campos em cadastros novos.</li>
+      <li><b>Seis categorias entram com id fixo.</b> Estratégia, Cooperativo, Família, Party, Cartas e Abstrato são inseridas pela migração; o front e os dados de teste podem referenciá-las.</li>
+      <li><b>Imagens ficam no banco.</b> Capas (<code>board_game_cover.data</code>) e avatares (<code>user_profile.avatar_image</code>) são <code>BYTEA</code>, com até 2 MB e 3 MB por imagem. O tamanho do banco passa a crescer com os uploads.</li>
+      <li><b>Excluir usuário: só as tabelas novas apagam em cascata.</b> Partidas abertas, pedidos, mensagens, notificações, curtidas e perfil somem junto com o usuário. As tabelas antigas (<code>user_board_game</code>, <code>match_user</code>, <code>user_review</code>) não têm cascata, então a exclusão ainda falha enquanto houver estante, partidas ou avaliações.</li>
+      <li><b>As correções de segurança não tocam o banco.</b> Autorização por dono, rate limiting e os limites do WebSocket não têm migração: contadores e tokens recusados vivem na memória da aplicação.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Schema</h2>
+    <figure>
+      <div class="scroll">
+        <svg viewBox="0 0 1160 600" role="img" aria-label="Diagrama do schema: 21 tabelas ligadas por chaves estrangeiras, com a tabela user no centro. Doze tabelas são novas e duas, board_game e offer, ganharam colunas.">
+          <defs>
+            <marker id="fk" viewBox="0 0 8 8" refX="7.5" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path class="ah" d="M0,0 L8,4 L0,8 z"/></marker>
+          </defs>
+
+          <!-- rótulos de domínio -->
+          <text class="dl" x="20" y="30">CATÁLOGO</text>
+          <text class="dl" x="400" y="218">ESTANTE</text>
+          <text class="dl" x="596" y="128">PARTIDAS JOGADAS</text>
+          <text class="dl" x="786" y="128">LOJA</text>
+          <text class="dl" x="20" y="494">PERFIL</text>
+          <text class="dl" x="210" y="494">JOGUE (MATCHMAKING)</text>
+          <text class="dl" x="882" y="494">MENSAGENS DIRETAS</text>
+          <text class="dl" x="590" y="586">NOTIFICAÇÕES</text>
+
+          <!-- chaves estrangeiras: a seta aponta para a tabela referenciada -->
+          <g marker-end="url(#fk)">
+            <path class="edge" d="M105,136 L105,92"/>
+            <path class="edge" d="M190,160 L210,160"/>
+            <path class="edge" d="M295,136 L295,92"/>
+            <path class="edge" d="M345,184 L345,206 L390,206 L390,330"/>
+            <path class="edge" d="M470,92 L470,152 L380,152"/>
+            <path class="edge" d="M295,228 L295,184"/>
+            <path class="edge" d="M295,276 L295,330"/>
+            <path class="edge" d="M105,228 L105,206 L250,206 L250,184"/>
+            <path class="edge" d="M105,276 L105,330"/>
+            <path class="edge" d="M500,228 L500,168 L380,168"/>
+            <path class="edge" d="M455,276 L455,330"/>
+            <path class="edge" d="M590,160 L584,160 L584,252 L570,252"/>
+            <path class="edge" d="M675,228 L675,184"/>
+            <path class="edge" d="M675,276 L675,330"/>
+            <path class="edge" d="M865,136 L865,114 L576,114 L576,240 L570,240"/>
+            <path class="edge" d="M865,228 L865,184"/>
+            <path class="edge" d="M865,276 L865,330"/>
+            <path class="edge" d="M970,252 L950,252"/>
+            <path class="edge" d="M1055,276 L1055,330"/>
+
+            <path class="edge" d="M105,426 L105,372"/>
+            <path class="edge" d="M295,426 L295,372"/>
+            <path class="edge" d="M380,450 L400,450"/>
+            <path class="edge" d="M455,426 L455,372"/>
+            <path class="edge" d="M590,450 L570,450"/>
+            <path class="edge" d="M675,426 L675,372"/>
+            <path class="edge" d="M865,426 L865,372"/>
+            <path class="edge" d="M970,450 L950,450"/>
+            <path class="edge" d="M1055,426 L1055,372"/>
+            <path class="edge" d="M590,542 L485,542 L485,474"/>
+            <path class="edge" d="M760,542 L865,542 L865,474"/>
+            <path class="edge" d="M745,518 L745,496 L770,496 L770,372"/>
+          </g>
+
+          <!-- user: no centro, quase tudo aponta para ela -->
+          <g class="n-base">
+            <polygon points="20,330 1140,330 1140,362 1130,372 20,372"/>
+            <text class="tn" x="36" y="349">user</text>
+            <text class="ts" x="36" y="364">7 colunas</text>
+            <text class="tn" x="1090" y="356">user</text>
+          </g>
+
+          <!-- open_match usa uma cópia da estante: a linha passa por cima de user -->
+          <path class="halo" d="M515,424 L515,280"/>
+          <path class="edge" marker-end="url(#fk)" d="M515,426 L515,276"/>
+
+          <!-- rótulos das ligações que não são óbvias -->
+          <text class="el" x="394" y="312">autor</text>
+          <text class="el" x="521" y="312">cópia usada</text>
+          <text class="el" x="871" y="312">comprador</text>
+          <text class="el" x="461" y="402">host</text>
+          <text class="el" x="301" y="402">quem pede</text>
+
+          <!-- catálogo -->
+          <g class="n-base"><polygon points="20,44 190,44 190,82 180,92 20,92"/><text class="tn" x="32" y="64">publisher</text><text class="ts" x="32" y="80">3 colunas</text></g>
+          <g class="n-new"><polygon points="210,44 380,44 380,82 370,92 210,92"/><text class="tn" x="222" y="64">category</text><text class="ts" x="222" y="80">nova · 2 colunas · 6 linhas</text></g>
+          <g class="n-new"><polygon points="400,44 570,44 570,82 560,92 400,92"/><text class="tn" x="412" y="64">board_game_cover</text><text class="ts" x="412" y="80">nova · 4 colunas</text></g>
+          <g class="n-base"><polygon points="20,136 190,136 190,174 180,184 20,184"/><text class="tn" x="32" y="156">publisher_board_game</text><text class="ts" x="32" y="172">3 colunas</text></g>
+          <g class="n-alt"><polygon points="210,136 380,136 380,174 370,184 210,184"/><text class="tn" x="222" y="156">board_game</text><text class="ts" x="222" y="172">+7 colunas (16 no total)</text></g>
+          <g class="n-base"><polygon points="20,228 190,228 190,266 180,276 20,276"/><text class="tn" x="32" y="248">user_review</text><text class="ts" x="32" y="264">6 colunas</text></g>
+          <g class="n-new"><polygon points="210,228 380,228 380,266 370,276 210,276"/><text class="tn" x="222" y="248">board_game_like</text><text class="ts" x="222" y="264">nova · 3 colunas</text></g>
+
+          <!-- estante, partidas jogadas, loja -->
+          <g class="n-base"><polygon points="400,228 570,228 570,266 560,276 400,276"/><text class="tn" x="412" y="248">user_board_game</text><text class="ts" x="412" y="264">3 colunas</text></g>
+          <g class="n-base"><polygon points="590,136 760,136 760,174 750,184 590,184"/><text class="tn" x="602" y="156">match</text><text class="ts" x="602" y="172">2 colunas</text></g>
+          <g class="n-base"><polygon points="590,228 760,228 760,266 750,276 590,276"/><text class="tn" x="602" y="248">match_user</text><text class="ts" x="602" y="264">3 colunas</text></g>
+          <g class="n-alt"><polygon points="780,136 950,136 950,174 940,184 780,184"/><text class="tn" x="792" y="156">offer</text><text class="ts" x="792" y="172">+2 colunas (9 no total)</text></g>
+          <g class="n-new"><polygon points="780,228 950,228 950,266 940,276 780,276"/><text class="tn" x="792" y="248">offer_negotiation</text><text class="ts" x="792" y="264">nova · 9 colunas</text></g>
+          <g class="n-new"><polygon points="970,228 1140,228 1140,266 1130,276 970,276"/><text class="tn" x="978" y="248" textLength="154" lengthAdjust="spacingAndGlyphs">offer_negotiation_message</text><text class="ts" x="978" y="264">nova · 9 colunas</text></g>
+
+          <!-- perfil, jogue, mensagens diretas, notificações -->
+          <g class="n-new"><polygon points="20,426 190,426 190,464 180,474 20,474"/><text class="tn" x="32" y="446">user_profile</text><text class="ts" x="32" y="462">nova · 18 colunas</text></g>
+          <g class="n-new"><polygon points="210,426 380,426 380,464 370,474 210,474"/><text class="tn" x="222" y="446">open_match_request</text><text class="ts" x="222" y="462">nova · 8 colunas</text></g>
+          <g class="n-new"><polygon points="400,426 570,426 570,464 560,474 400,474"/><text class="tn" x="412" y="446">open_match</text><text class="ts" x="412" y="462">nova · 10 colunas</text></g>
+          <g class="n-new"><polygon points="590,426 760,426 760,464 750,474 590,474"/><text class="tn" x="602" y="446">open_match_message</text><text class="ts" x="602" y="462">nova · 9 colunas</text></g>
+          <g class="n-new"><polygon points="780,426 950,426 950,464 940,474 780,474"/><text class="tn" x="792" y="446">direct_conversation</text><text class="ts" x="792" y="462">nova · 8 colunas</text></g>
+          <g class="n-new"><polygon points="970,426 1140,426 1140,464 1130,474 970,474"/><text class="tn" x="982" y="446">direct_message</text><text class="ts" x="982" y="462">nova · 8 colunas</text></g>
+          <g class="n-new"><polygon points="590,518 760,518 760,556 750,566 590,566"/><text class="tn" x="602" y="538">notification</text><text class="ts" x="602" y="554">nova · 15 colunas</text></g>
+        </svg>
+      </div>
+      <div class="legend">
+        <span><i class="sw new"></i>tabela nova</span>
+        <span><i class="sw alt"></i>tabela existente que ganhou colunas</span>
+        <span><i class="sw"></i>sem mudança</span>
+        <span class="muted">A seta aponta para a tabela referenciada.</span>
+      </div>
+      <figcaption>Quase toda tabela nova referencia <code>user</code>, por isso ela atravessa o diagrama. Para manter o desenho legível, ficaram de fora as colunas de auditoria (<code>created_by</code> e <code>updated_by</code>, que também apontam para <code>user</code>), o segundo vínculo com <code>user</code> onde há dois (destinatário da mensagem, os dois lados da conversa direta) e as ligações de <code>notification</code> com <code>board_game</code> e <code>offer_negotiation</code>. A lista completa de chaves está em cada tabela, logo abaixo.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Migrações, na ordem em que rodam</h2>
+    <ol class="migs">
+      <li><div class="v">V20261123120000<small>23/11</small></div><div><h3>Aprovação de jogos</h3><p><code>board_game</code> ganha <code>approval_status</code>, <code>submitted_by</code> e <code>review_note</code>. Jogo cadastrado por usuário comum entra como <code>PENDING</code> e só aparece na wiki depois que um ADMIN aprova. Se o autor for removido, o jogo fica sem autor.</p></div></li>
+      <li><div class="v">V20261123150000<small>23/11</small></div><div><h3>Categorias e capas</h3><p>Cria <code>category</code> (com as seis categorias) e <code>board_game_cover</code>. <code>board_game</code> ganha <code>category_id</code>, <code>cover_preset</code> e <code>cover_image_updated_at</code>. A foto fica em tabela própria para as listagens não carregarem os bytes.</p></div></li>
+      <li><div class="v">V20261123180000<small>23/11</small></div><div><h3>Jogue: partidas abertas</h3><p>Cria <code>open_match</code> e <code>open_match_request</code>: um host anuncia a partida e aprova os pedidos de entrada. Separadas de <code>match</code> e <code>match_user</code>, que continuam sendo o registro de partidas já jogadas.</p></div></li>
+      <li><div class="v">V20261123200000<small>23/11</small></div><div><h3>Curtidas</h3><p>Cria <code>board_game_like</code> (uma curtida por usuário por jogo) e o contador <code>board_game.like_count</code>, atualizado na mesma transação da curtida, para o ranking não contar linhas a cada consulta.</p></div></li>
+      <li><div class="v">V20261124100000<small>24/11</small></div><div><h3>Chat de partida e notificações</h3><p>Cria <code>open_match_message</code> (mesa ou conversa direta entre host e participante) e <code>notification</code>, com oito tipos. As duas já nascem com auditoria completa.</p></div></li>
+      <li><div class="v">V20261124150000<small>24/11</small></div><div><h3>Negociação de anúncios</h3><p>Cria <code>offer_negotiation</code> e <code>offer_negotiation_message</code>, com propostas de preço. <code>notification</code> ganha <code>negotiation_id</code> e os tipos <code>OFFER_MESSAGE</code> e <code>OFFER_ACCEPTED</code>.</p></div></li>
+      <li><div class="v">V20261124180000<small>24/11</small></div><div><h3>Perfil do usuário</h3><p>Cria <code>user_profile</code>, 1:1 com <code>user</code>: bio, cidade, preferências de privacidade e alertas, e o avatar. Antes isso ficava só no navegador. Usuário sem linha usa os padrões.</p></div></li>
+      <li><div class="v">V20261124200000<small>24/11</small></div><div><h3>Estado e entrega do anúncio</h3><p><code>offer</code> ganha <code>condition</code> (cinco estados de conservação) e <code>delivery_method</code> (a combinar, retirada ou envio).</p></div></li>
+      <li><div class="v">V20261124220000<small>24/11</small></div><div><h3>Mensagens diretas</h3><p>Cria <code>direct_conversation</code> (uma por par de usuários) e <code>direct_message</code>. <code>user_profile</code> ganha <code>allow_direct_messages</code>; <code>notification</code> ganha <code>direct_conversation_id</code> e o tipo <code>DIRECT_MESSAGE</code>.</p></div></li>
+      <li><div class="v">V20261124230000<small>24/11</small></div><div><h3>Motivo do cancelamento</h3><p><code>open_match</code> ganha <code>cancel_reason</code>, informado pelo host ao cancelar e mostrado aos jogadores.</p></div></li>
+    </ol>
+    <details class="old">
+      <summary>Já em produção (3 migrações)</summary>
+      <ol class="migs">
+        <li><div class="v">V20260826110449</div><div><h3>Banco inicial</h3><p>As nove tabelas de origem: <code>user</code>, <code>board_game</code>, <code>publisher</code>, <code>publisher_board_game</code>, <code>user_board_game</code>, <code>user_review</code>, <code>match</code>, <code>match_user</code> e <code>offer</code>.</p></div></li>
+        <li><div class="v">V20261006194000</div><div><h3>País da editora</h3><p><code>publisher.country</code> passou de <code>INT</code> para <code>VARCHAR(30)</code>.</p></div></li>
+        <li><div class="v">V20261020203500</div><div><h3>Limite de jogadores</h3><p><code>match.max_users</code> foi removida; o limite vem do jogo.</p></div></li>
+      </ol>
+    </details>
+  </section>
+
+  <section>
+    <h2>Tabelas e colunas</h2>
+    <p class="muted">Estado do schema depois das dez migrações. As colunas marcadas com <b>+</b> entram em tabelas que já existem em produção. Tabelas novas e alteradas vêm abertas.</p>
+    <div id="tables"></div>
+    <noscript><p>A lista de colunas é montada por script. Com scripts desligados, consulte as migrações em <code>src/main/resources/db/migration</code>.</p></noscript>
+  </section>
+
+  <footer>Fonte: migrações Flyway em <code>src/main/resources/db/migration</code>, comparadas com a branch <code>prd</code>. Paleta e tipografia do front do Blue Hawk.</footer>
+</div>
+
+<script>
+(function () {
+  var ID = ['id', 'CHAR(36)', 'PK'];
+  var USER_C = 'FK → user · apaga em cascata';
+  var AUDIT = [
+    ['created_at', 'TIMESTAMP', 'NOT NULL · padrão agora'],
+    ['created_by', 'CHAR(36)', 'FK → user · vira NULL se o usuário sair'],
+    ['updated_at', 'TIMESTAMP', ''],
+    ['updated_by', 'CHAR(36)', 'FK → user · vira NULL se o usuário sair']
+  ];
+  var STAMPS = [['created_at', 'TIMESTAMP', 'NOT NULL · padrão agora'], ['updated_at', 'TIMESTAMP', 'NOT NULL · padrão agora']];
+  // [nome, tipo, regras, entrou agora numa tabela existente?]
+  var DOMAINS = [
+    { title: 'Catálogo', tables: [
+      { n: 'board_game', s: 'alt', w: '+7 colunas: aprovação, categoria, capa e curtidas', c: [
+        ID, ['description', 'VARCHAR(150)', 'NOT NULL'], ['name', 'VARCHAR(150)', 'NOT NULL'], ['release_date', 'DATE', 'NOT NULL'],
+        ['player_number', 'INT', 'NOT NULL'], ['gameplay_time', 'INT', 'NOT NULL'],
+        ['status', 'VARCHAR(20)', "NOT NULL · padrão 'ACTIVE' · ACTIVE, INACTIVE"]].concat(STAMPS, [
+        ['approval_status', 'VARCHAR(20)', "NOT NULL · padrão 'PENDING' · PENDING, APPROVED, REJECTED", 1],
+        ['submitted_by', 'CHAR(36)', 'FK → user · vira NULL se o autor sair', 1],
+        ['review_note', 'VARCHAR(500)', 'motivo da recusa', 1],
+        ['category_id', 'CHAR(36)', 'FK → category', 1],
+        ['cover_preset', 'VARCHAR(20)', 'uma das artes do site', 1],
+        ['cover_image_updated_at', 'TIMESTAMP', 'quando a foto foi enviada; versiona a URL', 1],
+        ['like_count', 'INT', 'NOT NULL · padrão 0 · nunca negativo', 1]]),
+        x: 'Índices novos: (approval_status) e (approval_status, like_count DESC).' },
+      { n: 'category', s: 'new', w: 'categorias escolhidas no cadastro do jogo', c: [ID, ['name', 'VARCHAR(60)', 'NOT NULL · único']],
+        x: 'Entra com seis linhas de id fixo: Estratégia, Cooperativo, Família, Party, Cartas e Abstrato.' },
+      { n: 'board_game_cover', s: 'new', w: 'foto de capa enviada', c: [
+        ['board_game_id', 'CHAR(36)', 'PK · FK → board_game · apaga em cascata'], ['content_type', 'VARCHAR(50)', 'NOT NULL'],
+        ['data', 'BYTEA', 'NOT NULL · a imagem (até 2 MB)'], ['updated_at', 'TIMESTAMP', 'NOT NULL · padrão agora']] },
+      { n: 'board_game_like', s: 'new', w: 'curtidas da wiki', c: [
+        ['board_game_id', 'CHAR(36)', 'PK · FK → board_game · apaga em cascata'], ['user_id', 'CHAR(36)', 'PK · ' + USER_C],
+        ['created_at', 'TIMESTAMP', 'NOT NULL · padrão agora']],
+        x: 'Chave composta: uma curtida por usuário por jogo. Índice em (user_id).' },
+      { n: 'publisher', s: '', w: 'editoras', c: [ID, ['name', 'VARCHAR(150)', 'NOT NULL'], ['country', 'VARCHAR(30)', 'NOT NULL']] },
+      { n: 'publisher_board_game', s: '', w: 'editora de cada jogo', c: [ID, ['publisher_id', 'CHAR(36)', 'FK → publisher'], ['board_game_id', 'CHAR(36)', 'FK → board_game']] },
+      { n: 'user_review', s: '', w: 'avaliações', c: [ID, ['user_id', 'CHAR(36)', 'FK → user'], ['board_game_id', 'CHAR(36)', 'FK → board_game'],
+        ['grade', 'INT', 'NOT NULL'], ['comment', 'VARCHAR(150)', 'NOT NULL'], ['review_date', 'DATE', 'NOT NULL']] }
+    ] },
+    { title: 'Usuário e perfil', tables: [
+      { n: 'user', s: '', w: 'contas', c: [ID, ['name', 'VARCHAR(150)', 'NOT NULL'], ['email', 'VARCHAR(150)', 'NOT NULL'],
+        ['password', 'VARCHAR(150)', 'NOT NULL · hash'], ['role', 'INT', 'NOT NULL']].concat(STAMPS) },
+      { n: 'user_profile', s: 'new', w: 'extras do perfil, privacidade, alertas e avatar', c: [
+        ['user_id', 'CHAR(36)', 'PK · ' + USER_C], ['bio', 'VARCHAR(500)', ''], ['city', 'VARCHAR(100)', ''],
+        ['experience_level', 'VARCHAR(20)', 'INICIANTE, INTERMEDIARIO, VETERANO'], ['favorite_genres', 'VARCHAR(200)', 'texto livre'],
+        ['is_public', 'BOOLEAN', 'NOT NULL · padrão TRUE'], ['show_shelf', 'BOOLEAN', 'NOT NULL · padrão TRUE'],
+        ['match_alerts', 'BOOLEAN', 'NOT NULL · padrão TRUE'], ['offer_alerts', 'BOOLEAN', 'NOT NULL · padrão FALSE'],
+        ['allow_direct_messages', 'BOOLEAN', 'NOT NULL · padrão TRUE'],
+        ['avatar_preset', 'VARCHAR(40)', 'uma das artes do site'], ['avatar_image', 'BYTEA', 'foto enviada (até 3 MB)'],
+        ['avatar_content_type', 'VARCHAR(50)', ''], ['avatar_updated_at', 'TIMESTAMP', '']].concat(AUDIT),
+        x: 'Relação 1:1 com user. Usuário sem linha usa os padrões: perfil público, estante visível, sem avatar.' }
+    ] },
+    { title: 'Estante e partidas jogadas', tables: [
+      { n: 'user_board_game', s: '', w: 'cópias na estante de cada usuário', c: [ID, ['user_id', 'CHAR(36)', 'FK → user'], ['board_game_id', 'CHAR(36)', 'FK → board_game']] },
+      { n: 'match', s: '', w: 'partida já jogada com uma cópia', c: [ID, ['userboardgame_id', 'CHAR(36)', 'FK → user_board_game']] },
+      { n: 'match_user', s: '', w: 'quem jogou', c: [ID, ['match_id', 'CHAR(36)', 'FK → match'], ['user_id', 'CHAR(36)', 'FK → user']] }
+    ] },
+    { title: 'Loja', tables: [
+      { n: 'offer', s: 'alt', w: '+2 colunas: estado de conservação e entrega', c: [
+        ID, ['userboardgame_id', 'CHAR(36)', 'FK → user_board_game'], ['price', 'DECIMAL(10,2)', 'NOT NULL'],
+        ['status', 'VARCHAR(20)', "NOT NULL · padrão 'ACTIVE' · ACTIVE, INACTIVE, SOLD, CANCELLED"], ['description', 'VARCHAR(500)', '']].concat(STAMPS, [
+        ['condition', 'VARCHAR(30)', 'NOVO_LACRADO, COMO_NOVO, MUITO_BOM, BOM, COM_MARCAS_DE_USO', 1],
+        ['delivery_method', 'VARCHAR(20)', 'A_COMBINAR, RETIRADA, ENVIO', 1]]) },
+      { n: 'offer_negotiation', s: 'new', w: 'conversa entre comprador e vendedor', c: [
+        ID, ['offer_id', 'CHAR(36)', 'NOT NULL · FK → offer · apaga em cascata'], ['buyer_id', 'CHAR(36)', 'NOT NULL · ' + USER_C],
+        ['status', 'VARCHAR(20)', "NOT NULL · padrão 'OPEN' · OPEN, ACCEPTED, CLOSED"], ['agreed_price', 'DECIMAL(10,2)', 'preço da proposta aceita']].concat(AUDIT),
+        x: 'Uma negociação por comprador por anúncio: único em (offer_id, buyer_id). Índice em (buyer_id).' },
+      { n: 'offer_negotiation_message', s: 'new', w: 'mensagens e propostas de preço', c: [
+        ID, ['negotiation_id', 'CHAR(36)', 'NOT NULL · FK → offer_negotiation · apaga em cascata'], ['sender_id', 'CHAR(36)', 'NOT NULL · ' + USER_C],
+        ['body', 'VARCHAR(1000)', 'NOT NULL'], ['proposed_price', 'DECIMAL(10,2)', 'opcional · maior que zero']].concat(AUDIT),
+        x: 'Índice em (negotiation_id, created_at) para ler a conversa em ordem.' }
+    ] },
+    { title: 'Jogue (matchmaking)', tables: [
+      { n: 'open_match', s: 'new', w: 'partida anunciada por um host', c: [
+        ID, ['host_id', 'CHAR(36)', 'NOT NULL · ' + USER_C], ['user_board_game_id', 'CHAR(36)', 'NOT NULL · FK → user_board_game · apaga em cascata'],
+        ['city', 'VARCHAR(100)', 'NOT NULL'], ['scheduled_at', 'TIMESTAMP', 'NOT NULL'], ['max_players', 'INT', 'NOT NULL · mínimo 2, contando o host'],
+        ['notes', 'VARCHAR(500)', ''], ['status', 'VARCHAR(20)', "NOT NULL · padrão 'OPEN' · OPEN, CANCELLED"],
+        ['created_at', 'TIMESTAMP', 'NOT NULL · padrão agora'], ['cancel_reason', 'VARCHAR(300)', 'motivo informado pelo host']],
+        x: 'Índices em (status, scheduled_at) e em LOWER(city).' },
+      { n: 'open_match_request', s: 'new', w: 'pedido de entrada na partida', c: [
+        ID, ['open_match_id', 'CHAR(36)', 'NOT NULL · FK → open_match · apaga em cascata'], ['user_id', 'CHAR(36)', 'NOT NULL · ' + USER_C],
+        ['message', 'VARCHAR(500)', 'NOT NULL · recado para o host'], ['status', 'VARCHAR(20)', "NOT NULL · padrão 'PENDING' · PENDING, ACCEPTED, REJECTED, CANCELLED"],
+        ['host_reply', 'VARCHAR(500)', ''], ['created_at', 'TIMESTAMP', 'NOT NULL · padrão agora'], ['decided_at', 'TIMESTAMP', '']],
+        x: 'Um pedido por pessoa por partida: único em (open_match_id, user_id). Índice em (user_id).' },
+      { n: 'open_match_message', s: 'new', w: 'chat da mesa e conversa com o host', c: [
+        ID, ['open_match_id', 'CHAR(36)', 'NOT NULL · FK → open_match · apaga em cascata'], ['sender_id', 'CHAR(36)', 'NOT NULL · ' + USER_C],
+        ['recipient_id', 'CHAR(36)', USER_C + ' · NULL = mensagem para a mesa toda'], ['body', 'VARCHAR(1000)', 'NOT NULL']].concat(AUDIT),
+        x: 'Índices em (open_match_id, recipient_id, created_at) e (open_match_id, sender_id, recipient_id).' }
+    ] },
+    { title: 'Mensagens diretas e notificações', tables: [
+      { n: 'direct_conversation', s: 'new', w: 'uma conversa por par de usuários', c: [
+        ID, ['user_a_id', 'CHAR(36)', 'NOT NULL · ' + USER_C], ['user_b_id', 'CHAR(36)', 'NOT NULL · ' + USER_C],
+        ['last_message_at', 'TIMESTAMP', 'NULL = conversa ainda vazia']].concat(AUDIT),
+        x: 'O par é gravado em ordem (user_a_id < user_b_id) e é único. Índice em (user_b_id).' },
+      { n: 'direct_message', s: 'new', w: 'mensagens da conversa direta', c: [
+        ID, ['conversation_id', 'CHAR(36)', 'NOT NULL · FK → direct_conversation · apaga em cascata'], ['sender_id', 'CHAR(36)', 'NOT NULL · ' + USER_C],
+        ['body', 'VARCHAR(1000)', 'NOT NULL']].concat(AUDIT),
+        x: 'Índice em (conversation_id, created_at).' },
+      { n: 'notification', s: 'new', w: 'avisos do usuário, com o contexto de cada um', c: [
+        ID, ['user_id', 'CHAR(36)', 'NOT NULL · ' + USER_C + ' · destinatário'], ['type', 'VARCHAR(40)', 'NOT NULL · 11 tipos'],
+        ['actor_id', 'CHAR(36)', 'FK → user · vira NULL se o usuário sair'], ['open_match_id', 'CHAR(36)', 'FK → open_match · apaga em cascata'],
+        ['board_game_id', 'CHAR(36)', 'FK → board_game · apaga em cascata'], ['thread_user_id', 'CHAR(36)', USER_C + ' · a outra pessoa da conversa'],
+        ['negotiation_id', 'CHAR(36)', 'FK → offer_negotiation · apaga em cascata'], ['direct_conversation_id', 'CHAR(36)', 'FK → direct_conversation · apaga em cascata'],
+        ['count', 'INT', 'NOT NULL · padrão 1 · mensagens agregadas'], ['read_at', 'TIMESTAMP', 'NULL = não lida']].concat(AUDIT),
+        x: 'Tipos: JOIN_REQUEST_RECEIVED, JOIN_REQUEST_WITHDRAWN, JOIN_REQUEST_ACCEPTED, JOIN_REQUEST_REJECTED, MATCH_CANCELLED, MATCH_MESSAGE, BOARDGAME_APPROVED, BOARDGAME_REJECTED, OFFER_MESSAGE, OFFER_ACCEPTED e DIRECT_MESSAGE. Índices em (user_id, read_at, created_at DESC), (negotiation_id) e (direct_conversation_id).' }
+    ] }
+  ];
+
+  function el(tag, cls, text) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text != null) node.textContent = text;
+    return node;
+  }
+
+  var root = document.getElementById('tables');
+  root.style.display = 'flex';
+  root.style.flexDirection = 'column';
+  root.style.gap = '28px';
+
+  DOMAINS.forEach(function (domain) {
+    var box = el('div', 'domain');
+    box.appendChild(el('h3', '', domain.title));
+    var cards = el('div', 'cards');
+    domain.tables.forEach(function (t) {
+      var d = el('details', 't');
+      d.id = 'tabela-' + t.n.replace(/_/g, '-');
+      if (t.s) d.open = true;
+      var sum = el('summary');
+      sum.appendChild(el('span', 'name', t.n));
+      if (t.s === 'new') sum.appendChild(el('span', 'tag new', 'nova'));
+      if (t.s === 'alt') sum.appendChild(el('span', 'tag alt', 'alterada'));
+      sum.appendChild(el('span', 'what', t.w));
+      d.appendChild(sum);
+
+      var body = el('div', 'tbody');
+      var wrap = el('div', 'cols');
+      var table = el('table');
+      var head = el('tr');
+      ['Coluna', 'Tipo', 'Regras'].forEach(function (h) { head.appendChild(el('th', '', h)); });
+      table.appendChild(head);
+      t.c.forEach(function (col) {
+        var tr = el('tr', col[3] ? 'added' : '');
+        tr.appendChild(el('td', '', col[0]));
+        tr.appendChild(el('td', '', col[1]));
+        tr.appendChild(el('td', '', col[2] || 'opcional'));
+        table.appendChild(tr);
+      });
+      wrap.appendChild(table);
+      body.appendChild(wrap);
+      if (t.x) body.appendChild(el('p', 'extra', t.x));
+      d.appendChild(body);
+      cards.appendChild(d);
+    });
+    box.appendChild(cards);
+    root.appendChild(box);
+  });
+})();
+</script>
+</body>
+</html>
