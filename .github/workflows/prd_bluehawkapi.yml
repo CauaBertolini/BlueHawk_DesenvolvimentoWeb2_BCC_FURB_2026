@@ -1,63 +1,66 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
+# Deploy da API no App Service BlueHawkAPI (Brazil South).
+#
+# O arquivo gerado pelo Centro de Implantação tentava enviar a imagem para mcr.microsoft.com (o registro
+# público da Microsoft, onde ninguém de fora publica), porque o app foi criado com a imagem de exemplo
+# appsvc/staticsite. Aqui a imagem vai para o GHCR, como no prd_bluehawk.yml, e o app baixa de lá
+# (o pacote é público, então não precisa de credencial de registro).
 
-name: Build and deploy container app to Azure Web App - BlueHawkAPI
+name: Build and deploy BlueHawkAPI
 
 on:
   push:
-    branches:
-      - 'prd'
+    branches: [prd]
   workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/cauabertolini/bluehawk
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read #This is required for actions/checkout
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout do código
+        uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+      - name: Configurar Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Log in to container registry
-        uses: docker/login-action@v2
+      - name: Login no GHCR
+        uses: docker/login-action@v3
         with:
-          registry: mcr.microsoft.com/
-          username: ${{ secrets.AZUREAPPSERVICE_CONTAINERUSERNAME_BAD1F350B4E14C34AC82688754445140 }}
-          password: ${{ secrets.AZUREAPPSERVICE_CONTAINERPASSWORD_AAF31352DC2549FCAD33F1028BE2D0D0 }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push container image to registry
-        uses: docker/build-push-action@v3
+      - name: Build e Push da imagem
+        uses: docker/build-push-action@v6
         with:
           context: .
-          push: true
-          tags: mcr.microsoft.com/${{ secrets.AZUREAPPSERVICE_CONTAINERUSERNAME_BAD1F350B4E14C34AC82688754445140 }}/appsvc/staticsite:${{ github.sha }}
           file: ./Dockerfile
+          push: true
+          tags: ${{ env.IMAGE }}:${{ github.sha }}
 
   deploy:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
-
     needs: build
-    
+    permissions:
+      id-token: write # Necessário para o login OIDC
+      contents: read
     steps:
-      
-      - name: Login to Azure
+      # Login na Azure via OIDC, com a identidade criada pelo Centro de Implantação para o BlueHawkAPI
+      - name: Login na Azure
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_2D7B7C24C8DB4CD4AEF03B706EE2E422 }}
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_47B1E522BEC74F1890FBB55A910D064F }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_053D9F8AEFF545628717C82DF975D0DF }}
 
-      - name: Deploy to Azure Web App
-        id: deploy-to-webapp
-        uses: azure/webapps-deploy@v2
+      - name: Deploy no Azure Web App
+        uses: azure/webapps-deploy@v3
         with:
-          app-name: 'BlueHawkAPI'
-          slot-name: 'Production'
-          images: 'mcr.microsoft.com/${{ secrets.AZUREAPPSERVICE_CONTAINERUSERNAME_BAD1F350B4E14C34AC82688754445140 }}/appsvc/staticsite:${{ github.sha }}'
-          
+          app-name: BlueHawkAPI
+          images: ghcr.io/cauabertolini/bluehawk:${{ github.sha }}
