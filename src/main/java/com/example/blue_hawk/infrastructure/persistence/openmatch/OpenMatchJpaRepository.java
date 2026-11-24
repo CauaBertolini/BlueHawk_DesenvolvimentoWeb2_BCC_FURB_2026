@@ -66,4 +66,13 @@ public interface OpenMatchJpaRepository extends JpaRepository<OpenMatchJpaEntity
             order by m.scheduledAt asc
             """)
     List<OpenMatchJpaEntity> findUpcomingInvolving(@Param("userId") UUID userId, @Param("from") LocalDateTime from);
+
+    /** Caixa de conversas: host ou com pedido em qualquer status (inclui canceladas) */
+    @Query("""
+            select m from OpenMatchJpaEntity m
+            where m.scheduledAt >= :from
+              and (m.hostId = :userId or m.id in (
+                    select r.openMatchId from OpenMatchRequestJpaEntity r where r.userId = :userId))
+            """)
+    List<OpenMatchJpaEntity> findInvolvingSince(@Param("userId") UUID userId, @Param("from") LocalDateTime from);
 }

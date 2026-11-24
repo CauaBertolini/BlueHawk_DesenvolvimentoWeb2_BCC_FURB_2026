@@ -18,6 +18,14 @@ public interface BoardgameJpaRepository extends JpaRepository<BoardgameJpaEntity
     Page<BoardgameJpaEntity> findByNameContainingIgnoreCaseAndApprovalStatus(String name, ApprovalStatus approvalStatus,
                                                                              Pageable pageable);
 
+    /** Filtro por categoria (nome exato, sem diferenciar maiúsculas) */
+    Page<BoardgameJpaEntity> findByCategory_NameIgnoreCaseAndApprovalStatus(String category,
+                                                                            ApprovalStatus approvalStatus,
+                                                                            Pageable pageable);
+
+    Page<BoardgameJpaEntity> findByNameContainingIgnoreCaseAndCategory_NameIgnoreCaseAndApprovalStatus(
+            String name, String category, ApprovalStatus approvalStatus, Pageable pageable);
+
     /** Soma (ou subtrai) curtidas direto no banco, sem ler-e-gravar o contador */
     @Modifying
     @Query(value = "UPDATE board_game SET like_count = GREATEST(like_count + :delta, 0) WHERE id = :id",

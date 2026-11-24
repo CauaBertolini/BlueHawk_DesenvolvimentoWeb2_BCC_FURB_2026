@@ -112,9 +112,10 @@ public class BoardgameController {
             @RequestParam(name = "sort", required = false) String sort,
             @RequestParam(name = "page", defaultValue = "0") Integer page,
             @RequestParam(name = "size", defaultValue = "10") Integer size,
+            @RequestParam(name = "category", required = false) String category,
             CurrentUser currentUser) {
 
-        ListBoardgameQuery query = new ListBoardgameQuery(name, status, sort, page, size, currentUser);
+        ListBoardgameQuery query = new ListBoardgameQuery(name, status, sort, page, size, currentUser, category);
         List<BoardgameResponse> response = listBoardgameUseCase.handle(query).stream()
                 .map(BoardgameController::toResponse)
                 .toList();
@@ -190,17 +191,19 @@ public class BoardgameController {
 
     @PostMapping("/{id}/approve")
     @PreAuthorize(Roles.ADMIN_ONLY)
-    public ResponseEntity<BoardgameResponse> approve(@PathVariable String id) {
-        return ResponseEntity.ok(toResponse(reviewBoardgameUseCase.handle(new ReviewBoardgameCommand(id, true, null))));
+    public ResponseEntity<BoardgameResponse> approve(@PathVariable String id, CurrentUser currentUser) {
+        return ResponseEntity.ok(toResponse(
+                reviewBoardgameUseCase.handle(new ReviewBoardgameCommand(id, true, null, currentUser))));
     }
 
     @PostMapping("/{id}/reject")
     @PreAuthorize(Roles.ADMIN_ONLY)
     public ResponseEntity<BoardgameResponse> reject(@PathVariable String id,
-                                                    @RequestBody(required = false) BoardgameReviewRequest request) {
+                                                    @RequestBody(required = false) BoardgameReviewRequest request,
+                                                    CurrentUser currentUser) {
         String reason = request != null ? request.reason() : null;
         return ResponseEntity.ok(toResponse(
-                reviewBoardgameUseCase.handle(new ReviewBoardgameCommand(id, false, reason))));
+                reviewBoardgameUseCase.handle(new ReviewBoardgameCommand(id, false, reason, currentUser))));
     }
 
     @DeleteMapping("/{id}")

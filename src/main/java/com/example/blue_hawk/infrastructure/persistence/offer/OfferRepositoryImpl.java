@@ -69,13 +69,15 @@ public class OfferRepositoryImpl implements IOfferRepository {
                 domain.getPrice(),
                 domain.getStatus(),
                 domain.getDescription(),
+                domain.getCondition(),
+                domain.getDeliveryMethod(),
                 domain.getCreatedAt(),
                 domain.getUpdatedAt()
         );
     }
 
     private Offer toDomain(OfferJpaEntity entity) {
-        return new Offer(
+        Offer offer = new Offer(
                 entity.getId(),
                 entity.getUserBoardgameId(),
                 entity.getPrice(),
@@ -84,5 +86,8 @@ public class OfferRepositoryImpl implements IOfferRepository {
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
+        offer.setCondition(entity.getCondition());
+        offer.setDeliveryMethod(entity.getDeliveryMethod());
+        return offer;
     }
 }

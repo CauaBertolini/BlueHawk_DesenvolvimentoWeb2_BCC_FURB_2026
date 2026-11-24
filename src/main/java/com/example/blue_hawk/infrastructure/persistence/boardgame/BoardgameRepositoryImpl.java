@@ -59,6 +59,21 @@ public class BoardgameRepositoryImpl implements IBoardgameRepository {
     }
 
     @Override
+    public Page<Boardgame> findAllInCategory(String name, String category, ApprovalStatus approvalStatus,
+                                             boolean mostLikedFirst, int page, int size) {
+        Sort sort = mostLikedFirst
+                ? Sort.by("likeCount").descending().and(Sort.by("name").ascending())
+                : Sort.by("name").ascending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+        Page<BoardgameJpaEntity> entities = (name != null && !name.isBlank())
+                ? boardgameJpaRepository.findByNameContainingIgnoreCaseAndCategory_NameIgnoreCaseAndApprovalStatus(
+                        name.trim(), category.trim(), approvalStatus, pageable)
+                : boardgameJpaRepository.findByCategory_NameIgnoreCaseAndApprovalStatus(category.trim(), approvalStatus,
+                        pageable);
+        return entities.map(this::toDomain);
+    }
+
+    @Override
     public void deleteById(String boardgameId) {
         boardgameJpaRepository.deleteById(UUID.fromString(boardgameId));
     }

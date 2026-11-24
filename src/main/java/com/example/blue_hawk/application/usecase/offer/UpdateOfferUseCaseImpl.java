@@ -28,6 +28,13 @@ public class UpdateOfferUseCaseImpl implements UpdateOfferUseCase {
         offer.setPrice(command.price());
         offer.setStatus(OfferStatus.valueOf(command.status()));
         offer.setDescription(command.description());
+        // Estado e forma de entrega são opcionais na edição (anúncios antigos não têm): null mantém os atuais
+        if (command.condition() != null) {
+            offer.setCondition(OfferFields.parseCondition(command.condition()));
+        }
+        if (command.deliveryMethod() != null) {
+            offer.setDeliveryMethod(OfferFields.parseDeliveryMethod(command.deliveryMethod()));
+        }
 
         Offer updated = offerRepository.save(offer);
 
@@ -37,6 +44,8 @@ public class UpdateOfferUseCaseImpl implements UpdateOfferUseCase {
                 updated.getPrice(),
                 updated.getStatus().name(),
                 updated.getDescription(),
+                OfferFields.nameOf(updated.getCondition()),
+                OfferFields.nameOf(updated.getDeliveryMethod()),
                 updated.getCreatedAt(),
                 updated.getUpdatedAt()
         );

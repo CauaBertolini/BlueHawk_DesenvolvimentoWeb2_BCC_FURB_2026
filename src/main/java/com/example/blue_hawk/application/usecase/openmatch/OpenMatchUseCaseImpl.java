@@ -8,7 +8,9 @@ import com.example.blue_hawk.application.dto.openmatch.OpenMatchDtos.ListQuery;
 import com.example.blue_hawk.application.dto.openmatch.OpenMatchDtos.MyRequestView;
 import com.example.blue_hawk.application.dto.openmatch.OpenMatchDtos.OpenMatchView;
 import com.example.blue_hawk.application.dto.openmatch.OpenMatchDtos.RequestView;
+import com.example.blue_hawk.application.usecase.notification.NotificationService;
 import com.example.blue_hawk.domain.entity.boardgame.Boardgame;
+import com.example.blue_hawk.domain.entity.notification.Notification;
 import com.example.blue_hawk.domain.entity.openmatch.OpenMatch;
 import com.example.blue_hawk.domain.entity.openmatch.OpenMatchRequest;
 import com.example.blue_hawk.domain.entity.user.User;
@@ -42,15 +44,18 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
     private final IUserBoardGameRepository userBoardGameRepository;
     private final IBoardgameRepository boardgameRepository;
     private final IUserRepository userRepository;
+    private final NotificationService notificationService;
 
     public OpenMatchUseCaseImpl(IOpenMatchRepository openMatchRepository,
                                 IUserBoardGameRepository userBoardGameRepository,
                                 IBoardgameRepository boardgameRepository,
-                                IUserRepository userRepository) {
+                                IUserRepository userRepository,
+                                NotificationService notificationService) {
         this.openMatchRepository = openMatchRepository;
         this.userBoardGameRepository = userBoardGameRepository;
         this.boardgameRepository = boardgameRepository;
         this.userRepository = userRepository;
+        this.notificationService = notificationService;
     }
 
     @Override
@@ -109,12 +114,28 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
 
     @Override
     @Transactional
-    public OpenMatchView cancel(String id, CurrentUser currentUser) {
+    public OpenMatchView cancel(String id, String reason, CurrentUser currentUser) {
         CurrentUser user = orAnonymous(currentUser);
         OpenMatch match = findMatch(id);
         requireHost(match, user);
-        match.cancel();
-        return view(openMatchRepository.save(match), user);
+        String text = reason == null ? "" : reason.trim();
+        if (text.length() < CANCEL_REASON_MIN || text.length() > CANCEL_REASON_MAX) {
+            throw badRequest("reason must have between " + CANCEL_REASON_MIN + " and " + CANCEL_REASON_MAX
+                    + " characters");
+        }
+        boolean wasOpen = match.getStatus() == OpenMatch.Status.OPEN;
+        if (wasOpen) {
+            match.cancel(text);
+        }
+        OpenMatch saved = openMatchRepository.save(match);
+        if (wasOpen) {
+            // Avisa quem ainda esperava jogar (pendentes e aceitos)
+            openMatchRepository.findRequests(match.getId()).stream()
+                    .filter(OpenMatchRequest::isActive)
+                    .forEach(r -> notificationService.notifyMatch(r.getUserId(), Notification.Type.MATCH_CANCELLED,
+                            user.userId(), match.getId()));
+        }
+        return view(saved, user);
     }
 
     @Override
@@ -145,6 +166,8 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
                 })
                 .orElseGet(() -> OpenMatchRequest.create(match.getId(), user.userId(), text));
         openMatchRepository.saveRequest(request);
+        notificationService.notifyMatch(match.getHostId(), Notification.Type.JOIN_REQUEST_RECEIVED, user.userId(),
+                match.getId());
         return view(match, user);
     }
 
@@ -159,6 +182,8 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Request not found"));
         request.cancel();
         openMatchRepository.saveRequest(request);
+        notificationService.notifyMatch(match.getHostId(), Notification.Type.JOIN_REQUEST_WITHDRAWN, user.userId(),
+                match.getId());
         return view(match, user);
     }
 
@@ -190,7 +215,11 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
         } else {
             request.reject(hostReply);
         }
-        return requestView(openMatchRepository.saveRequest(request));
+        RequestView decided = requestView(openMatchRepository.saveRequest(request));
+        notificationService.notifyMatch(request.getUserId(),
+                accept ? Notification.Type.JOIN_REQUEST_ACCEPTED : Notification.Type.JOIN_REQUEST_REJECTED,
+                user.userId(), match.getId());
+        return decided;
     }
 
     @Override
@@ -235,7 +264,8 @@ public class OpenMatchUseCaseImpl implements OpenMatchUseCase {
                 new HostView(match.getHostId().toString(), userName(match.getHostId())),
                 gameView,
                 isHost,
-                myRequest);
+                myRequest,
+                match.getCancelReason());
     }
 
     private RequestView requestView(OpenMatchRequest r) {

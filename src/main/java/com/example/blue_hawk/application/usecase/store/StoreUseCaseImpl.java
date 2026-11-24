@@ -1,6 +1,7 @@
 package com.example.blue_hawk.application.usecase.store;
 
 import com.example.blue_hawk.application.dto.auth.CurrentUser;
+import com.example.blue_hawk.application.usecase.offer.OfferFields;
 import com.example.blue_hawk.domain.entity.boardgame.Boardgame;
 import com.example.blue_hawk.domain.entity.offer.Offer;
 import com.example.blue_hawk.domain.entity.user.User;
@@ -64,18 +65,45 @@ public class StoreUseCaseImpl implements StoreUseCase {
 
             String seller = sellers.computeIfAbsent(copy.getUserId(),
                     id -> userRepository.findById(id).map(User::getName).orElse("Usuário removido"));
-            result.add(new StoreOffer(
-                    offer.getId().toString(),
-                    offer.getPrice(),
-                    offer.getDescription(),
-                    offer.getCreatedAt() != null ? offer.getCreatedAt().toInstant(ZoneOffset.UTC).toString() : null,
-                    seller,
-                    copy.getUserId().equals(me),
-                    new StoreGame(game.getId().toString(), game.getName(), game.getDescription(),
-                            game.getCategoryName(), game.getCoverPreset(),
-                            game.getCoverImageUpdatedAt() != null ? game.getCoverImageUpdatedAt().toEpochMilli() : null,
-                            game.getPlayerNumber(), game.getPlayTime(), game.getReleaseYear())));
+            result.add(toStoreOffer(offer, copy, game, seller, me));
         }
         return result;
+    }
+
+    @Override
+    public Optional<StoreOffer> get(String offerId, CurrentUser currentUser) {
+        UUID id;
+        try {
+            id = UUID.fromString(offerId);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            return Optional.empty();
+        }
+        UUID me = currentUser != null ? currentUser.userId() : null;
+        return offerRepository.findById(id)
+                .filter(Offer::isActive)
+                .flatMap(offer -> userBoardGameRepository.findById(offer.getUserBoardgameId())
+                        .flatMap(copy -> boardgameRepository.findById(copy.getBoardgameId())
+                                .filter(Boardgame::isApproved)
+                                .map(game -> toStoreOffer(offer, copy, game,
+                                        userRepository.findById(copy.getUserId()).map(User::getName)
+                                                .orElse("Usuário removido"),
+                                        me))));
+    }
+
+    private static StoreOffer toStoreOffer(Offer offer, UserBoardgame copy, Boardgame game, String seller, UUID me) {
+        return new StoreOffer(
+                offer.getId().toString(),
+                offer.getPrice(),
+                offer.getDescription(),
+                OfferFields.nameOf(offer.getCondition()),
+                OfferFields.nameOf(offer.getDeliveryMethod()),
+                offer.getCreatedAt() != null ? offer.getCreatedAt().toInstant(ZoneOffset.UTC).toString() : null,
+                copy.getUserId().toString(),
+                seller,
+                copy.getUserId().equals(me),
+                new StoreGame(game.getId().toString(), game.getName(), game.getDescription(),
+                        game.getCategoryName(), game.getCoverPreset(),
+                        game.getCoverImageUpdatedAt() != null ? game.getCoverImageUpdatedAt().toEpochMilli() : null,
+                        game.getPlayerNumber(), game.getPlayTime(), game.getReleaseYear()));
     }
 }

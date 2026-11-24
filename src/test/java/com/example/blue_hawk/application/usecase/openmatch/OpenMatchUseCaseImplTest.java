@@ -3,7 +3,9 @@ package com.example.blue_hawk.application.usecase.openmatch;
 import com.example.blue_hawk.application.dto.auth.CurrentUser;
 import com.example.blue_hawk.application.dto.openmatch.OpenMatchDtos.HostCommand;
 import com.example.blue_hawk.application.dto.openmatch.OpenMatchDtos.OpenMatchView;
+import com.example.blue_hawk.application.usecase.notification.NotificationService;
 import com.example.blue_hawk.domain.entity.boardgame.Boardgame;
+import com.example.blue_hawk.domain.entity.notification.Notification;
 import com.example.blue_hawk.domain.entity.openmatch.OpenMatch;
 import com.example.blue_hawk.domain.entity.openmatch.OpenMatchRequest;
 import com.example.blue_hawk.domain.entity.userboardgame.UserBoardgame;
@@ -28,6 +30,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -42,6 +45,7 @@ class OpenMatchUseCaseImplTest {
     private static final UUID GUEST = UUID.randomUUID();
     private static final CurrentUser HOST_USER = new CurrentUser(HOST, false);
     private static final CurrentUser GUEST_USER = new CurrentUser(GUEST, false);
+    private static final String REASON = "Choveu muito, a estrada fechou";
 
     @Mock
     private IOpenMatchRepository openMatchRepository;
@@ -51,6 +55,8 @@ class OpenMatchUseCaseImplTest {
     private IBoardgameRepository boardgameRepository;
     @Mock
     private IUserRepository userRepository;
+    @Mock
+    private NotificationService notificationService;
 
     private OpenMatchUseCaseImpl useCase;
     private Boardgame game;
@@ -58,7 +64,8 @@ class OpenMatchUseCaseImplTest {
 
     @BeforeEach
     void setUp() {
-        useCase = new OpenMatchUseCaseImpl(openMatchRepository, userBoardGameRepository, boardgameRepository, userRepository);
+        useCase = new OpenMatchUseCaseImpl(openMatchRepository, userBoardGameRepository, boardgameRepository, userRepository,
+                notificationService);
         game = new Boardgame("Catan", "Classico", 1995, 4, 90);
         hostCopy = new UserBoardgame(HOST.toString(), game.getId().toString());
         when(userBoardGameRepository.findById(hostCopy.getId())).thenReturn(Optional.of(hostCopy));
@@ -206,9 +213,96 @@ class OpenMatchUseCaseImplTest {
     void onlyHostCancelsMatch() {
         OpenMatch match = openMatch(4);
         assertEquals(HttpStatus.FORBIDDEN, assertThrows(ResponseStatusException.class,
-                () -> useCase.cancel(match.getId().toString(), GUEST_USER)).getStatusCode());
+                () -> useCase.cancel(match.getId().toString(), REASON, GUEST_USER)).getStatusCode());
         verify(openMatchRepository, never()).save(any());
 
-        assertEquals("CANCELLED", useCase.cancel(match.getId().toString(), HOST_USER).status());
+        assertEquals("CANCELLED", useCase.cancel(match.getId().toString(), REASON, HOST_USER).status());
+    }
+
+    @Test
+    void cancellingRequiresAReasonBetween10And300Characters() {
+        OpenMatch match = openMatch(4);
+        String id = match.getId().toString();
+
+        for (String invalid : new String[]{null, "", "   ", "curto", "  nove 9!  ", "x".repeat(301)}) {
+            assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
+                    () -> useCase.cancel(id, invalid, HOST_USER)).getStatusCode(), "reason: " + invalid);
+        }
+        verify(openMatchRepository, never()).save(any());
+        assertEquals("OPEN", match.getStatus().name());
+        assertNull(useCase.get(id, HOST_USER).cancelReason(), "aberta: sem motivo");
+    }
+
+    @Test
+    void cancelReasonIsTrimmedSavedAndReturned() {
+        OpenMatch match = openMatch(4);
+        String id = match.getId().toString();
+
+        OpenMatchView view = useCase.cancel(id, "  " + REASON + "  ", HOST_USER);
+
+        assertEquals(REASON, view.cancelReason());
+        ArgumentCaptor<OpenMatch> saved = ArgumentCaptor.forClass(OpenMatch.class);
+        verify(openMatchRepository).save(saved.capture());
+        assertEquals(REASON, saved.getValue().getCancelReason());
+        assertEquals(OpenMatch.Status.CANCELLED, saved.getValue().getStatus());
+
+        // Cancelar de novo não troca o motivo
+        assertEquals(REASON, useCase.cancel(id, "Outro motivo qualquer", HOST_USER).cancelReason());
+        assertEquals(300, useCase.cancel(openMatch(4).getId().toString(), "x".repeat(300), HOST_USER)
+                .cancelReason().length(), "300 caracteres ainda vale");
+    }
+
+    // ── notificações ────────────────────────────────────────────────────────
+
+    @Test
+    void joinRequestNotifiesTheHost() {
+        OpenMatch match = openMatch(4);
+        when(openMatchRepository.findRequest(match.getId(), GUEST)).thenReturn(Optional.empty());
+
+        useCase.requestToJoin(match.getId().toString(), "Posso levar petiscos?", GUEST_USER);
+
+        verify(notificationService).notifyMatch(HOST, Notification.Type.JOIN_REQUEST_RECEIVED, GUEST, match.getId());
+    }
+
+    @Test
+    void withdrawingNotifiesTheHost() {
+        OpenMatch match = openMatch(4);
+        OpenMatchRequest request = OpenMatchRequest.create(match.getId(), GUEST, "oi");
+        when(openMatchRepository.findRequest(match.getId(), GUEST)).thenReturn(Optional.of(request));
+
+        useCase.cancelMyRequest(match.getId().toString(), GUEST_USER);
+
+        verify(notificationService).notifyMatch(HOST, Notification.Type.JOIN_REQUEST_WITHDRAWN, GUEST, match.getId());
+    }
+
+    @Test
+    void decisionNotifiesTheRequester() {
+        OpenMatch match = openMatch(4);
+        OpenMatchRequest accepted = OpenMatchRequest.create(match.getId(), GUEST, "oi");
+        OpenMatchRequest rejected = OpenMatchRequest.create(match.getId(), UUID.randomUUID(), "oi");
+        when(openMatchRepository.findRequestById(accepted.getId())).thenReturn(Optional.of(accepted));
+        when(openMatchRepository.findRequestById(rejected.getId())).thenReturn(Optional.of(rejected));
+
+        useCase.decide(accepted.getId().toString(), true, "Bem-vindo", HOST_USER);
+        useCase.decide(rejected.getId().toString(), false, null, HOST_USER);
+
+        verify(notificationService).notifyMatch(GUEST, Notification.Type.JOIN_REQUEST_ACCEPTED, HOST, match.getId());
+        verify(notificationService).notifyMatch(rejected.getUserId(), Notification.Type.JOIN_REQUEST_REJECTED, HOST,
+                match.getId());
+    }
+
+    @Test
+    void cancellingNotifiesOnlyActiveRequesters() {
+        OpenMatch match = openMatch(4);
+        OpenMatchRequest pending = OpenMatchRequest.create(match.getId(), GUEST, "oi");
+        OpenMatchRequest gaveUp = OpenMatchRequest.create(match.getId(), UUID.randomUUID(), "oi");
+        gaveUp.cancel();
+        when(openMatchRepository.findRequests(match.getId())).thenReturn(java.util.List.of(pending, gaveUp));
+
+        useCase.cancel(match.getId().toString(), REASON, HOST_USER);
+
+        verify(notificationService).notifyMatch(GUEST, Notification.Type.MATCH_CANCELLED, HOST, match.getId());
+        verify(notificationService, never()).notifyMatch(gaveUp.getUserId(), Notification.Type.MATCH_CANCELLED, HOST,
+                match.getId());
     }
 }

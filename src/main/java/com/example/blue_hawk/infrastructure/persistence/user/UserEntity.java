@@ -11,6 +11,8 @@ import jakarta.persistence.Table;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 // Aspas duplas preservam a palavra reservada "user" no PostgreSQL.
@@ -38,6 +40,10 @@ public class UserEntity {
     @Column(name = "role", nullable = false)
     private UserRole role;
 
+    // Só leitura: o banco preenche no INSERT (DEFAULT CURRENT_TIMESTAMP) e o valor nunca muda.
+    @Column(name = "created_at", insertable = false, updatable = false)
+    private LocalDateTime createdAt;
+
     protected UserEntity() {
     }
 
@@ -48,10 +54,15 @@ public class UserEntity {
         entity.email = user.getEmail();
         entity.password = user.getPasswordHash();
         entity.role = user.getRole();
+        entity.createdAt = user.getCreatedAt() != null
+                ? LocalDateTime.ofInstant(user.getCreatedAt(), ZoneOffset.UTC)
+                : null;
         return entity;
     }
 
     public User toDomain() {
-        return new User(id, name, email, password, role);
+        User user = new User(id, name, email, password, role);
+        user.setCreatedAt(createdAt != null ? createdAt.toInstant(ZoneOffset.UTC) : null);
+        return user;
     }
 }

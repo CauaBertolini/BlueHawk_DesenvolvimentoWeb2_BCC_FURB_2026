@@ -33,6 +33,13 @@ public class PatchOfferUseCaseImpl implements PatchOfferUseCase {
         if (command.description() != null) {
             offer.setDescription(command.description());
         }
+        // Quando vierem, estado e forma de entrega seguem as regras da criação (400)
+        if (command.condition() != null) {
+            offer.setCondition(OfferFields.parseCondition(command.condition()));
+        }
+        if (command.deliveryMethod() != null) {
+            offer.setDeliveryMethod(OfferFields.parseDeliveryMethod(command.deliveryMethod()));
+        }
 
         Offer updated = offerRepository.save(offer);
 
@@ -42,6 +49,8 @@ public class PatchOfferUseCaseImpl implements PatchOfferUseCase {
                 updated.getPrice(),
                 updated.getStatus().name(),
                 updated.getDescription(),
+                OfferFields.nameOf(updated.getCondition()),
+                OfferFields.nameOf(updated.getDeliveryMethod()),
                 updated.getCreatedAt(),
                 updated.getUpdatedAt()
         );

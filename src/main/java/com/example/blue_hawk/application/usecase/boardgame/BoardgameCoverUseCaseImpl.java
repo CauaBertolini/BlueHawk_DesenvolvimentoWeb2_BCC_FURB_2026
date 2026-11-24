@@ -94,8 +94,11 @@ public class BoardgameCoverUseCaseImpl implements BoardgameCoverUseCase {
         }
     }
 
-    /** JPEG (FF D8 FF), PNG (89 50 4E 47) ou WebP (RIFF....WEBP); null para qualquer outra coisa */
-    static String detectImageType(byte[] d) {
+    /**
+     * JPEG (FF D8 FF), PNG (89 50 4E 47) ou WebP (RIFF....WEBP); null para qualquer outra coisa.
+     * Também usado pelo upload do avatar do usuário.
+     */
+    public static String detectImageType(byte[] d) {
         if (d.length >= 3 && (d[0] & 0xFF) == 0xFF && (d[1] & 0xFF) == 0xD8 && (d[2] & 0xFF) == 0xFF) {
             return "image/jpeg";
         }

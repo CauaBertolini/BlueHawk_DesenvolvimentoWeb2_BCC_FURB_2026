@@ -17,8 +17,14 @@ public interface OpenMatchUseCase {
 
     OpenMatchView host(HostCommand command);
 
-    /** Só o host */
-    OpenMatchView cancel(String id, CurrentUser currentUser);
+    int CANCEL_REASON_MIN = 10;
+    int CANCEL_REASON_MAX = 300;
+
+    /**
+     * Só o host. {@code reason} obrigatório (com trim, de 10 a 300 caracteres), mostrado aos jogadores. Cancelar
+     * de novo uma partida já cancelada não troca o motivo nem notifica outra vez.
+     */
+    OpenMatchView cancel(String id, String reason, CurrentUser currentUser);
 
     OpenMatchView requestToJoin(String id, String message, CurrentUser currentUser);
 

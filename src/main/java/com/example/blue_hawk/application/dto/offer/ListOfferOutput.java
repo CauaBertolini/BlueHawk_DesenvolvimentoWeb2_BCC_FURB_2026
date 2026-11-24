@@ -9,6 +9,10 @@ public record ListOfferOutput(
         BigDecimal price,
         String status,
         String description,
+        // Estado de conservação (null em anúncios antigos)
+        String condition,
+        // Forma de entrega (null em anúncios antigos)
+        String deliveryMethod,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {}

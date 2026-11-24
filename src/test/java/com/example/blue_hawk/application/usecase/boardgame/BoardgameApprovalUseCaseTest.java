@@ -1,5 +1,7 @@
 package com.example.blue_hawk.application.usecase.boardgame;
 
+import com.example.blue_hawk.application.usecase.notification.NotificationService;
+import com.example.blue_hawk.domain.entity.notification.Notification;
 import com.example.blue_hawk.application.dto.auth.CurrentUser;
 import com.example.blue_hawk.application.dto.boardgame.CreateBoardgameCommand;
 import com.example.blue_hawk.application.dto.boardgame.CreateBoardgameOutput;
@@ -32,6 +34,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -54,6 +58,8 @@ class BoardgameApprovalUseCaseTest {
     private ICategoryRepository categoryRepository;
     @Mock
     private IBoardgameLikeRepository likeRepository;
+    @Mock
+    private NotificationService notificationService;
 
     private static final UUID CATEGORY_ID = UUID.randomUUID();
 
@@ -113,6 +119,18 @@ class BoardgameApprovalUseCaseTest {
     }
 
     @Test
+    void wikiFiltersByCategory() {
+        when(boardgameRepository.findAllInCategory(null, "Cartas", ApprovalStatus.APPROVED, false, 0, 10))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        new ListBoardgameUseCaseImpl(boardgameRepository, likeRepository)
+                .handle(new ListBoardgameQuery(null, null, null, 0, 10, CurrentUser.anonymous(), "Cartas"));
+
+        verify(boardgameRepository).findAllInCategory(null, "Cartas", ApprovalStatus.APPROVED, false, 0, 10);
+        verify(boardgameRepository, never()).findAll(any(), any(), anyBoolean(), anyInt(), anyInt());
+    }
+
+    @Test
     void onlyAdminSeesPendingQueue() {
         ListBoardgameUseCaseImpl useCase = new ListBoardgameUseCaseImpl(boardgameRepository, likeRepository);
 
@@ -145,10 +163,13 @@ class BoardgameApprovalUseCaseTest {
         when(boardgameRepository.findById(pending.getId())).thenReturn(Optional.of(pending));
         when(boardgameRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        var rejected = new ReviewBoardgameUseCaseImpl(boardgameRepository)
-                .handle(new ReviewBoardgameCommand(pending.getId().toString(), false, "Nome duplicado"));
+        var rejected = new ReviewBoardgameUseCaseImpl(boardgameRepository, notificationService)
+                .handle(new ReviewBoardgameCommand(pending.getId().toString(), false, "Nome duplicado", ADMIN));
         assertEquals("REJECTED", rejected.approvalStatus());
         assertEquals("Nome duplicado", rejected.reviewNote());
+        // Quem enviou fica sabendo da recusa
+        verify(notificationService).notifyBoardgame(USER_ID, Notification.Type.BOARDGAME_REJECTED, ADMIN.userId(),
+                pending.getId());
 
         var edited = new UpdateBoardgameUseCaseImpl(boardgameRepository, categoryRepository).handle(new UpdateBoardgameCommand(
                 pending.getId().toString(), "X corrigido", "Y", 2024, 2, 30, CATEGORY_ID.toString(), null, USER));
